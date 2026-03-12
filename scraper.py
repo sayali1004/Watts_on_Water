@@ -11,7 +11,6 @@ Requirements:
     pip install pandas openpyxl requests beautifulsoup4 geopy lxml
 """
 
-
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup

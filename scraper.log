@@ -1,0 +1,6 @@
+2026-03-11 20:12:09,560 [INFO] ============================================================
+2026-03-11 20:12:09,561 [INFO] SCEIN Scraper started
+2026-03-11 20:12:09,561 [INFO] Run time: 2026-03-11 20:12:09
+2026-03-11 20:12:09,561 [INFO] ============================================================
+2026-03-11 20:12:09,561 [ERROR] Excel file not found: SCEIN_Fellowship_Data_Tracker_Google_Sheets.xlsx
+2026-03-11 20:12:09,561 [ERROR] Make sure the Excel file is in the same folder as this script.

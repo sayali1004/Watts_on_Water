@@ -18,6 +18,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: main
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -28,6 +29,9 @@ jobs:
         run: |
           pip install pandas openpyxl requests beautifulsoup4 geopy lxml
 
+      - name: List files
+        run: ls -la
+
       - name: Run scraper
         run: python scraper.py
 
@@ -37,6 +41,7 @@ jobs:
         run: |
           git config --global user.name "SCEIN Scraper Bot"
           git config --global user.email "scraper@scein.auto"
+          git pull --rebase origin main
           git add scraped_data.csv scraper.log
           git diff --staged --quiet || git commit -m "Weekly data refresh - $(date +'%Y-%m-%d')"
-          git push https://x-access-token:${GITHUB_TOKEN}@github.com/sayali1004/Watts_on_Water.git main
+          git push origin main

@@ -25,8 +25,7 @@ from datetime import datetime
 from geopy.geocoders import Nominatim # type: ignore
 from geopy.extra.rate_limiter import RateLimiter
 
-# ── Configuration ──────────────────────────────────────────────────────────────
-EXCEL_FILE = "SCEIN_Fellowship_Data_Tracker_Google_Sheets.xlsx"   # Path to your Excel file
+EXCEL_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "SCEIN_Fellowship_Data_Tracker_Google_Sheets.xlsx")   # Path to your Excel file
 OUTPUT_CSV = "scraped_data.csv"                                    # Output for QGIS
 LOG_FILE   = "scraper.log"                                         # Log file
 DELAY_BETWEEN_REQUESTS = 2   # Seconds between requests (be polite to servers)

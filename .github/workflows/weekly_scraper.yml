@@ -37,6 +37,8 @@ jobs:
         run: |
           git config --global user.name "SCEIN Scraper Bot"
           git config --global user.email "scraper@scein.auto"
+          git fetch origin main
+          git checkout main
           git add scraped_data.csv scraper.log
           git diff --staged --quiet || git commit -m "Weekly data refresh - $(date +'%Y-%m-%d')"
-          git push --force origin main
+          git push origin main --force

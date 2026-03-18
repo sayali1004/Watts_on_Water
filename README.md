@@ -18,7 +18,7 @@ It's the cron schedule format. Each number/symbol means something:
 └────────── Minute (0 = at :00)
 ```
 
-✅ Scraper — reads Excel, scrapes 80 URLs
+✅ Scraper — reads Excel, scrapes URLs
 ✅ Cron — runs every Monday 8AM automatically
 ✅ CSV — updates weekly
 ✅ QGIS — reloads every hour, map stays fresh

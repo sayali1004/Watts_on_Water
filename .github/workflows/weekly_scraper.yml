@@ -17,6 +17,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -34,7 +35,8 @@ jobs:
         run: |
           git config --global user.name "SCEIN Scraper Bot"
           git config --global user.email "scraper@scein.auto"
-          git pull origin main
+          git fetch origin main
+          git reset --soft origin/main
           git add scraped_data.csv scraper.log
           git diff --staged --quiet || git commit -m "Weekly data refresh - $(date +'%Y-%m-%d')"
-          git push
+          git push origin main

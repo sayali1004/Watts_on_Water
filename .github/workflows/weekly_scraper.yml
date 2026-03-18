@@ -2,8 +2,11 @@ name: SCEIN Weekly Scraper
 
 on:
   schedule:
-    - cron: '0 8 * * 1'   # Every Monday at 8:00 AM UTC
-  workflow_dispatch:        # Allows manual trigger from GitHub UI anytime
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   scrape:

@@ -1,0 +1,94 @@
+2026-03-23 08:59:36,220 [INFO] ============================================================
+2026-03-23 08:59:36,220 [INFO] SCEIN Scraper started
+2026-03-23 08:59:36,220 [INFO] Run time: 2026-03-23 08:59:36
+2026-03-23 08:59:36,220 [INFO] ============================================================
+2026-03-23 08:59:36,221 [INFO] Reading Excel file: /home/runner/work/Watts_on_Water/Watts_on_Water/SCEIN_Fellowship_Data_Tracker_Google_Sheets.xlsx
+2026-03-23 08:59:36,671 [INFO] Extracted 80 records from Excel.
+2026-03-23 08:59:36,695 [INFO] [1/80] Scraping: https://www.acgov.org/cda/building/
+2026-03-23 08:59:39,630 [INFO] [2/80] Scraping: https://www.alpinecountyca.gov/157/Building-Department
+2026-03-23 08:59:43,174 [INFO] [3/80] Scraping: https://www.amadorgov.org/departments/building
+2026-03-23 08:59:46,313 [INFO] [4/80] Scraping: https://www.buttecounty.net/263/Building-Division
+2026-03-23 08:59:49,550 [INFO] [5/80] Scraping: https://building.calaverasgov.us/
+2026-03-23 08:59:52,536 [INFO] [6/80] Scraping: https://www.countyofcolusa.org/136/Building-Division
+2026-03-23 08:59:55,777 [INFO] [7/80] Scraping: https://www.contracosta.ca.gov/4688/Solar-Permits
+2026-03-23 08:59:58,557 [INFO] [8/80] Scraping: https://www.co.del-norte.ca.us/departments/CommunityDevelopment/BuildingInspection
+2026-03-23 09:00:01,883 [INFO] [9/80] Scraping: https://www.edcgov.us/Government/building/Pages/solar_permits.aspx
+2026-03-23 09:00:04,791 [INFO] [10/80] Scraping: https://www.fresnocountyca.gov/Departments/Public-Works-and-Planning/Building-and-Safety
+2026-03-23 09:00:07,489 [INFO] [11/80] Scraping: https://www.countyofglenn.net/govt/departments/planning-community-development-services/building-inspection
+2026-03-23 09:00:10,205 [INFO] [12/80] Scraping: https://humboldtgov.org/156/Planning-Building
+2026-03-23 09:00:13,564 [INFO] [13/80] Scraping: https://www.icpds.com/planning/renewable-energy
+2026-03-23 09:00:17,047 [INFO] [14/80] Scraping: https://www.inyocounty.us/services/building-safety
+2026-03-23 09:00:19,881 [INFO] [15/80] Scraping: https://kernpublicworks.com/building-and-code/
+2026-03-23 09:00:23,056 [INFO] [16/80] Scraping: https://www.countyofkings.com/departments/community-development-agency/building-division
+2026-03-23 09:00:26,172 [INFO] [17/80] Scraping: https://www.lakecountyca.gov/367/Building
+2026-03-23 09:00:29,105 [INFO] [18/80] Scraping: https://www.lassencounty.org/dept/planning-and-building-services/building-division
+2026-03-23 09:00:32,038 [INFO] [19/80] Scraping: https://pw.lacounty.gov/bsd/content/solar.aspx
+2026-03-23 09:00:35,304 [WARNING] Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'ReadTimeoutError("HTTPSConnectionPool(host='nominatim.openstreetmap.org', port=443): Read timed out. (read timeout=1)")': /search?q=Los+Angeles+County%2C+California%2C+USA&format=json&limit=1
+2026-03-23 09:00:35,956 [INFO] [20/80] Scraping: https://www.maderacounty.com/government/community-development-department/building-division
+2026-03-23 09:00:38,618 [INFO] [21/80] Scraping: https://www.marincounty.org/depts/cd/divisions/building-and-safety
+2026-03-23 09:00:41,391 [INFO] [22/80] Scraping: https://www.mariposacounty.org/53/Building
+2026-03-23 09:00:44,583 [INFO] [23/80] Scraping: https://www.mendocinocounty.gov/departments/planning-building-services/building
+2026-03-23 09:00:47,560 [INFO] [24/80] Scraping: https://www.countyofmerced.com/60/Building-Safety-Division
+2026-03-23 09:00:53,872 [INFO] [25/80] Scraping: https://www.co.modoc.ca.us/departments/building_and_safety/index.php
+2026-03-23 09:00:56,684 [INFO] [26/80] Scraping: https://monocounty.ca.gov/building
+2026-03-23 09:01:00,101 [INFO] [27/80] Scraping: https://www.co.monterey.ca.us/government/departments-i-z/housing-community-development/building-services
+2026-03-23 09:01:03,315 [INFO] [28/80] Scraping: https://www.countyofnapa.org/1271/Building-Division
+2026-03-23 09:01:11,388 [INFO] [29/80] Scraping: https://www.nevadacountyca.gov/586/Building-Department
+2026-03-23 09:01:14,816 [INFO] [30/80] Scraping: https://ocpublicworks.com/building-safety/permits/online
+2026-03-23 09:01:18,147 [INFO] [31/80] Scraping: https://www.placer.ca.gov/2443/Solar-Permits
+2026-03-23 09:01:22,250 [INFO] [32/80] Scraping: https://www.plumascounty.us/2703/Building-Services
+2026-03-23 09:01:25,499 [INFO] [33/80] Scraping: https://rctlma.org/Building-Safety/Solar-Permitting
+2026-03-23 09:01:28,250 [INFO] [34/80] Scraping: https://building.saccounty.gov/Pages/Solar-Permits.aspx
+2026-03-23 09:01:32,011 [INFO] [35/80] Scraping: https://www.cosb.us/departments/resource-management-agency/building
+2026-03-23 09:01:35,095 [INFO] [36/80] Scraping: https://lus.sbcounty.gov/building-safety-home/solar-permitting/
+2026-03-23 09:01:39,017 [INFO] [37/80] Scraping: https://www.sandiegocounty.gov/content/sdc/pds/bldg/Solar.html
+2026-03-23 09:01:42,469 [INFO] [38/80] Scraping: https://sf.gov/departments/department-building-inspection
+2026-03-23 09:01:45,780 [INFO] [39/80] Scraping: https://www.sjgov.org/community_development/building/permits/solar
+2026-03-23 09:01:48,841 [INFO] [40/80] Scraping: https://www.slocounty.ca.gov/Departments/Planning-Building/Building.aspx
+2026-03-23 09:01:51,717 [INFO] [41/80] Scraping: https://www.smcgov.org/planning/solar-permits
+2026-03-23 09:01:56,161 [INFO] [42/80] Scraping: https://www.countyofsb.org/168/Building-Safety
+2026-03-23 09:01:59,535 [INFO] [43/80] Scraping: https://www.sccgov.org/sites/dpd/Development/Building
+2026-03-23 09:02:02,472 [INFO] [44/80] Scraping: https://www.sccoplanning.com/PlanningHome/BuildingSafety.aspx
+2026-03-23 09:02:06,549 [INFO] [45/80] Scraping: https://www.shastacounty.gov/building/page/solar-pv-permits
+2026-03-23 09:02:09,160 [INFO] [46/80] Scraping: https://www.sierracounty.ca.gov/181/Building-Department
+2026-03-23 09:02:12,301 [INFO] [47/80] Scraping: https://www.co.siskiyou.ca.us/building
+2026-03-23 09:02:15,682 [INFO] [48/80] Scraping: https://www.solanocounty.com/depts/rm/building/
+2026-03-23 09:02:19,200 [INFO] [49/80] Scraping: https://permitsonoma.org/Divisions/Engineering-and-Construction/Building/Solar-Permits
+2026-03-23 09:02:22,329 [INFO] [50/80] Scraping: https://www.stancounty.com/planning/building/
+2026-03-23 09:02:24,843 [INFO] [51/80] Scraping: https://www.suttercounty.org/government/county-departments/development-services/building-services
+2026-03-23 09:02:28,530 [INFO] [52/80] Scraping: https://www.co.tehama.ca.us/government/departments/building-safety/
+2026-03-23 09:02:32,516 [INFO] [53/80] Scraping: https://www.trinitycounty.org/Building
+2026-03-23 09:02:35,774 [INFO] [54/80] Scraping: https://tularecounty.ca.gov/rma/index.cfm/planning-building/building-services-division/
+2026-03-23 09:02:38,141 [INFO] [55/80] Scraping: https://www.tuolumnecounty.ca.gov/167/Building-Safety-Division
+2026-03-23 09:02:40,714 [INFO] [56/80] Scraping: https://vcrma.org/en/residential-solar
+2026-03-23 09:02:44,587 [INFO] [57/80] Scraping: https://www.yolocounty.org/government/general-government-departments/community-services/building-inspection
+2026-03-23 09:02:47,697 [INFO] [58/80] Scraping: https://www.yuba.org/departments/community_development/building_department/index.php
+2026-03-23 09:02:50,948 [INFO] [59/80] Scraping: https://www.usace.army.mil/Missions/Civil-Works/Regulatory-Program-and-Permits/
+2026-03-23 09:02:53,245 [INFO] [60/80] Scraping: https://www.usace.army.mil/Missions/Civil-Works/Regulatory-Program-and-Permits/
+2026-03-23 09:02:55,363 [INFO] [61/80] Scraping: https://www.usace.army.mil/Missions/Civil-Works/Regulatory-Program-and-Permits/Obtain-a-Permit/
+2026-03-23 09:02:57,472 [INFO] [62/80] Scraping: https://www.usace.army.mil/Missions/Civil-Works/Regulatory-Program-and-Permits/Section-10/
+2026-03-23 09:02:59,573 [INFO] [63/80] Scraping: https://www.usace.army.mil/Missions/Civil-Works/Regulatory-Program-and-Permits/Obtain-a-Permit/
+2026-03-23 09:03:01,685 [INFO] [64/80] Scraping: https://www.waterboards.ca.gov/water_issues/programs/cwa401/
+2026-03-23 09:03:04,828 [INFO] [65/80] Scraping: https://www.waterboards.ca.gov/resources/fees/water_quality/
+2026-03-23 09:03:07,044 [INFO] [66/80] Scraping: https://www.waterboards.ca.gov/water_issues/programs/stormwater/construction.html
+2026-03-23 09:03:09,479 [INFO] [67/80] Scraping: https://smarts.waterboards.ca.gov/
+2026-03-23 09:03:12,052 [INFO] [68/80] Scraping: https://water.ca.gov/Programs/All-Programs/Division-of-Safety-of-Dams
+2026-03-23 09:03:15,197 [INFO] [69/80] Scraping: https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=WAT&sectionNum=6002.
+2026-03-23 09:03:18,227 [INFO] [70/80] Scraping: https://www.dsireusa.org/
+2026-03-23 09:03:20,777 [INFO] [71/80] Scraping: https://www.michigan.gov/taxes/property/exemptions/solar-energy-facility-exemption
+2026-03-23 09:03:23,701 [INFO] [72/80] Scraping: https://www.nyserda.ny.gov/All-Programs/NY-Sun/Contractors/Dashboards-and-incentives/Upstate-Dashboard
+2026-03-23 09:03:25,859 [INFO] [73/80] Scraping: https://masmartsolar.com/
+2026-03-23 09:03:28,204 [INFO] [74/80] Scraping: https://www.veda.org/veda-rates-fees
+2026-03-23 09:03:30,549 [INFO] [75/80] Scraping: https://tax.vermont.gov/municipal-officials/solar-plant-taxation
+2026-03-23 09:03:33,745 [INFO] [76/80] Scraping: https://tax.vermont.gov/municipal-officials/solar-plant-taxation
+2026-03-23 09:03:35,917 [INFO] [77/80] Scraping: https://www.veda.org/veda-rates-fees
+2026-03-23 09:03:38,045 [INFO] [78/80] Scraping: https://programs.dsireusa.org/system/program/detail/22451/non-residential-renewable-energy-solutions
+2026-03-23 09:03:40,584 [INFO] [79/80] Scraping: https://www.mass.gov/info-details/being-a-green-community#grant-opportunities-
+2026-03-23 09:03:42,826 [INFO] [80/80] Scraping: https://concordma.gov/2029/Solar-Panels
+2026-03-23 09:03:45,344 [INFO] ============================================================
+2026-03-23 09:03:45,345 [INFO] Done! 80 records saved to scraped_data.csv
+2026-03-23 09:03:45,345 [INFO]   Live pages   : 35
+2026-03-23 09:03:45,345 [INFO]   Errors       : 1
+2026-03-23 09:03:45,345 [INFO]   Output file  : /home/runner/work/Watts_on_Water/Watts_on_Water/scraped_data.csv
+2026-03-23 09:03:45,345 [INFO] Load this CSV into QGIS as a Delimited Text Layer.
+2026-03-23 09:03:45,345 [INFO] ============================================================

@@ -366,18 +366,17 @@ class SCEINScraper:
 
 def main():
     """Main entry point"""
+    # Get credentials from environment variables (GitHub Secrets)
     SUPABASE_URL = os.getenv('SUPABASE_URL')
     SUPABASE_KEY = os.getenv('SUPABASE_KEY')
     EXCEL_PATH = os.getenv('EXCEL_PATH', 'SCEIN_Fellowship_Data_Tracker_Google_Sheets__1_.xlsx')
-    MAX_URLS = os.getenv('MAX_URLS')  # Optional limit for testing
     
     if not SUPABASE_URL or not SUPABASE_KEY:
         raise ValueError("SUPABASE_URL and SUPABASE_KEY environment variables must be set")
     
-    max_urls = int(MAX_URLS) if MAX_URLS else None
-    
+    # Initialize and run scraper
     scraper = SCEINScraper(SUPABASE_URL, SUPABASE_KEY)
-    scraper.run(EXCEL_PATH, max_urls=max_urls)
+    scraper.run(EXCEL_PATH)
 
 
 if __name__ == '__main__':

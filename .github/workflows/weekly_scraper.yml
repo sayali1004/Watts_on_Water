@@ -1,44 +1,49 @@
-name: SCEIN Weekly Scraper
+name: Scrape SCEIN Data
 
 on:
   schedule:
-    - cron: '0 8 * * 1'
-  workflow_dispatch:
-
-permissions:
-  contents: write
+    - cron: '0 8 * * 1'  # Monday at 8 AM (your current schedule)
+  
+  workflow_dispatch:  # Manual trigger button
+  
+  push:
+    branches: [ main ]
+    paths:
+      - 'SCEIN_Fellowship_Data_Tracker_Google_Sh*.xlsx'
+      - 'scraper.py'
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
-
+    
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install dependencies
-        run: |
-          pip install pandas openpyxl requests beautifulsoup4 geopy lxml
-
-      - name: Run scraper
-        run: python scraper.py
-
-      - name: Commit and push updated CSV
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git config --global user.name "SCEIN Scraper Bot"
-          git config --global user.email "scraper@scein.auto"
-          git fetch origin main
-          git checkout main
-          git add scraped_data.csv scraper.log
-          git diff --staged --quiet || git commit -m "Weekly data refresh - $(date +'%Y-%m-%d')"
-          git push origin main --force
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install pandas openpyxl requests beautifulsoup4 supabase lxml python-dateutil
+    
+    - name: Run scraper
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        EXCEL_PATH: 'SCEIN_Fellowship_Data_Tracker_Google_Sheets__1_.xlsx'
+      run: |
+        python scraper.py
+    
+    - name: Upload logs
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: scraper-logs
+        path: |
+          *.log
+          *.csv
+        retention-days: 7

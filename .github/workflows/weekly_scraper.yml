@@ -2,9 +2,7 @@ name: Scrape SCEIN Data
 on:
   schedule:
     - cron: '0 8 * * 1'  # Monday at 8 AM
-  
   workflow_dispatch:
-  
   push:
     branches: [ main ]
     paths:
@@ -17,7 +15,7 @@ jobs:
     
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4  # Updated to v4
+      uses: actions/checkout@v4
     
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -36,14 +34,3 @@ jobs:
         EXCEL_PATH: 'SCEIN_Fellowship_Data_Tracker_Google_Sheets__1_.xlsx'
       run: |
         python scraper.py
-    
-    # If you need to upload artifacts, use v4
-    - name: Upload results (if needed)
-      if: always()  # Run even if scraper fails, to see output
-      uses: actions/upload-artifact@v4
-      with:
-        name: scraper-results
-        path: |
-          *.xlsx
-          *.log
-        retention-days: 7

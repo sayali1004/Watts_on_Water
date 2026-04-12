@@ -1,12 +1,11 @@
 name: Scrape SCEIN Data
 on:
   schedule:
-    - cron: '0 8 * * 1'  # Monday at 8 AM
+    - cron: '*/10 * * * *'  # Every 10 minutes
   workflow_dispatch:
   push:
     branches: [ main ]
     paths:
-      - '*.xlsx'
       - 'scraper.py'
 
 jobs:
@@ -16,6 +15,10 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+    
+    - name: Download latest Google Sheet
+      run: |
+        curl -L "https://docs.google.com/spreadsheets/d/1wb4dJT7LvvF29jQr2foik9OB6D-DLILWudaY47toibY/export?format=xlsx" -o "SCEIN Fellowship_Data Tracker Google Sheets_1.xlsx"
     
     - name: Set up Python
       uses: actions/setup-python@v5

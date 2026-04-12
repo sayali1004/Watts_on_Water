@@ -303,10 +303,10 @@ class SCEINScraper:
     def save_to_supabase(self, data: List[Dict]):
         """Save scraped data to Supabase"""
         if not data:
-        logger.warning("No data to save")
-        return
+            logger.warning("No data to save")
+            return
     
-        logger.info(f"Saving {len(data)} records to Supabase")
+            logger.info(f"Saving {len(data)} records to Supabase")
     
         try:
             # Upsert in batches of 100

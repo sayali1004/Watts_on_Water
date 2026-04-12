@@ -368,7 +368,7 @@ def main():
     """Main entry point"""
     SUPABASE_URL = os.getenv('SUPABASE_URL')
     SUPABASE_KEY = os.getenv('SUPABASE_KEY')
-    EXCEL_PATH = os.getenv('EXCEL_PATH', 'SCEIN Fellowship_Data Tracker Google Sheets_1.xlsx.xlsx')
+    EXCEL_PATH = os.getenv('EXCEL_PATH', 'SCEIN Fellowship_Data Tracker Google Sheets_1.xlsx')
     MAX_URLS = os.getenv('MAX_URLS')  # Optional limit for testing
     
     if not SUPABASE_URL or not SUPABASE_KEY:

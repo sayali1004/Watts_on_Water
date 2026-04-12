@@ -31,6 +31,6 @@ jobs:
       env:
         SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
         SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        EXCEL_PATH: 'SCEIN_Fellowship_Data_Tracker_Google_Sheets__1_.xlsx'
+        EXCEL_PATH: 'SCEIN_Fellowship_Data_Tracker_Google_Sheets.xlsx'
       run: |
         python scraper.py

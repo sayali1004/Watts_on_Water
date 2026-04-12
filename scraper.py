@@ -305,24 +305,28 @@ class SCEINScraper:
         if not data:
             logger.warning("No data to save")
             return
-    
-            logger.info(f"Saving {len(data)} records to Supabase")
-    
+        
+        logger.info(f"Saving {len(data)} records to Supabase")
+        
         try:
             # Upsert in batches of 100
             batch_size = 100
             for i in range(0, len(data), batch_size):
                 batch = data[i:i+batch_size]
-            
+                
                 # Use the composite unique index for conflict resolution
                 result = self.supabase.table('permits_data').upsert(
                     batch,
                     on_conflict='url,data_type,excel_sheet,excel_row'
                 ).execute()
-            
+                
                 logger.info(f"Saved batch {i//batch_size + 1}: {len(batch)} records")
-        
+            
             logger.info(f"Successfully saved all {len(data)} records")
+            
+        except Exception as e:
+            logger.error(f"Error saving to Supabase: {str(e)}")
+            raise
     
     def run(self, excel_path: str, max_urls: Optional[int] = None):
         """Main execution flow"""
@@ -364,7 +368,7 @@ def main():
     """Main entry point"""
     SUPABASE_URL = os.getenv('SUPABASE_URL')
     SUPABASE_KEY = os.getenv('SUPABASE_KEY')
-    EXCEL_PATH = os.getenv('EXCEL_PATH', 'SCEIN Fellowship_Data Tracker Google Sheets_1.xlsx.xlsx')
+    EXCEL_PATH = os.getenv('EXCEL_PATH', 'SCEIN Fellowship_Data Tracker Google Sheets_1.xlsx')
     MAX_URLS = os.getenv('MAX_URLS')  # Optional limit for testing
     
     if not SUPABASE_URL or not SUPABASE_KEY:

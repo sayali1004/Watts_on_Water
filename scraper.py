@@ -38,7 +38,7 @@ class SCEINScraper:
             logger.info(f"Reading sheet: {sheet_name}")
             
             # Read sheet - skip first row (headers are in row 1)
-            df = pd.read_excel(excel_path, sheet_name=sheet_name, header=None, skiprows=2)
+            df = pd.read_excel(excel_path, sheet_name=sheet_name, header=None, skiprows=3)
             
             # Map columns based on your structure
             # Column indices (0-based):

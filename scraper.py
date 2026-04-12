@@ -305,42 +305,42 @@ class SCEINScraper:
         if not data:
             logger.warning("No data to save")
             return
-    
-    logger.info(f"Saving {len(data)} records to Supabase")
-    
-    # Clean null bytes from all string fields
-    def clean_null_bytes(obj):
-        """Remove null bytes from strings in dict"""
-        if isinstance(obj, dict):
-            return {k: clean_null_bytes(v) for k, v in obj.items()}
-        elif isinstance(obj, str):
-            return obj.replace('\x00', '').replace('\u0000', '')
-        elif isinstance(obj, list):
-            return [clean_null_bytes(item) for item in obj]
-        else:
-            return obj
-    
-    cleaned_data = [clean_null_bytes(record) for record in data]
-    
-    try:
-        # Upsert in batches of 100
-        batch_size = 100
-        for i in range(0, len(cleaned_data), batch_size):
-            batch = cleaned_data[i:i+batch_size]
-            
-            # Use the composite unique index for conflict resolution
-            result = self.supabase.table('permits_data').upsert(
-                batch,
-                on_conflict='url,data_type,excel_sheet,excel_row'
-            ).execute()
-            
-            logger.info(f"Saved batch {i//batch_size + 1}: {len(batch)} records")
         
-        logger.info(f"Successfully saved all {len(cleaned_data)} records")
+        logger.info(f"Saving {len(data)} records to Supabase")
         
-    except Exception as e:
-        logger.error(f"Error saving to Supabase: {str(e)}")
-        raise
+        # Clean null bytes from all string fields
+        def clean_null_bytes(obj):
+            """Remove null bytes from strings in dict"""
+            if isinstance(obj, dict):
+                return {k: clean_null_bytes(v) for k, v in obj.items()}
+            elif isinstance(obj, str):
+                return obj.replace('\x00', '').replace('\u0000', '')
+            elif isinstance(obj, list):
+                return [clean_null_bytes(item) for item in obj]
+            else:
+                return obj
+        
+        cleaned_data = [clean_null_bytes(record) for record in data]
+        
+        try:
+            # Upsert in batches of 100
+            batch_size = 100
+            for i in range(0, len(cleaned_data), batch_size):
+                batch = cleaned_data[i:i+batch_size]
+                
+                # Use the composite unique index for conflict resolution
+                result = self.supabase.table('permits_data').upsert(
+                    batch,
+                    on_conflict='url,data_type,excel_sheet,excel_row'
+                ).execute()
+                
+                logger.info(f"Saved batch {i//batch_size + 1}: {len(batch)} records")
+            
+            logger.info(f"Successfully saved all {len(cleaned_data)} records")
+            
+        except Exception as e:
+            logger.error(f"Error saving to Supabase: {str(e)}")
+            raise
     
     def run(self, excel_path: str, max_urls: Optional[int] = None):
         """Main execution flow"""

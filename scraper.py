@@ -301,31 +301,28 @@ class SCEINScraper:
         return 'active'
     
     def save_to_supabase(self, data: List[Dict]):
-        """Save scraped data to Supabase"""
-        if not data:
-            logger.warning("No data to save")
-            return
-        
-        logger.info(f"Saving {len(data)} records to Supabase")
-        
-        try:
-            # Upsert in batches of 100
-            batch_size = 100
-            for i in range(0, len(data), batch_size):
-                batch = data[i:i+batch_size]
-                
-                result = self.supabase.table('permits_data').upsert(
-                    batch,
-                    on_conflict='url'
-                ).execute()
-                
-                logger.info(f"Saved batch {i//batch_size + 1}: {len(batch)} records")
+    """Save scraped data to Supabase"""
+    if not data:
+        logger.warning("No data to save")
+        return
+    
+    logger.info(f"Saving {len(data)} records to Supabase")
+    
+    try:
+        # Upsert in batches of 100
+        batch_size = 100
+        for i in range(0, len(data), batch_size):
+            batch = data[i:i+batch_size]
             
-            logger.info(f"Successfully saved all {len(data)} records")
+            # Use the composite unique index for conflict resolution
+            result = self.supabase.table('permits_data').upsert(
+                batch,
+                on_conflict='url,data_type,excel_sheet,excel_row'
+            ).execute()
             
-        except Exception as e:
-            logger.error(f"Error saving to Supabase: {str(e)}")
-            raise
+            logger.info(f"Saved batch {i//batch_size + 1}: {len(batch)} records")
+        
+        logger.info(f"Successfully saved all {len(data)} records")
     
     def run(self, excel_path: str, max_urls: Optional[int] = None):
         """Main execution flow"""

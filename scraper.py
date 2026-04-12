@@ -37,18 +37,17 @@ class SCEINScraper:
         for sheet_name in ['Permits', 'Incentives', 'Regulations']:
             logger.info(f"Reading sheet: {sheet_name}")
             
-            # Read sheet - skip first row (headers are in row 1)
+            # Read sheet - skip first 3 rows (empty row, headers, example row)
             df = pd.read_excel(excel_path, sheet_name=sheet_name, header=None, skiprows=3)
             
-            # Map columns based on your structure
-            # Column indices (0-based):
-            # 0: Parameter name (like county name or program name)
-            # 1: Description
-            # 8: Source URL (based on the data you showed)
-            # Other columns vary by sheet
+            # Map columns based on actual Excel structure:
+            # Column 0 (A): Empty
+            # Column 1 (B): Description (long text)
+            # Column 5 (F): Parameter name (e.g., "Alameda County — Building permits portal")
+            # Column 8 (I): Source URL
             
             for idx, row in df.iterrows():
-                # Extract URL from column 8
+                # Extract URL from column 8 (Column I in Excel)
                 url = row.iloc[8] if len(row) > 8 else None
                 
                 if pd.isna(url) or not isinstance(url, str) or '[BLANK]' in url:
@@ -59,12 +58,12 @@ class SCEINScraper:
                 if not url.startswith('http'):
                     continue
                 
-                # Extract parameter name (column 0)
+                # Extract parameter name from column 5 (Column F in Excel)
                 parameter_name = row.iloc[5] if len(row) > 5 else None
                 if pd.isna(parameter_name):
                     parameter_name = None
                 
-                # Extract description (column 1)
+                # Extract description from column 1 (Column B in Excel)
                 description = row.iloc[1] if len(row) > 1 else None
                 if pd.isna(description):
                     description = None
@@ -80,7 +79,7 @@ class SCEINScraper:
                     'description': str(description) if description else None,
                     'county': county,
                     'state': self._extract_state_from_name(parameter_name),
-                    'excel_row': idx + 3,  # Actual row in Excel (accounting for skipped rows)
+                    'excel_row': idx + 4,  # Actual row in Excel (accounting for skipped rows)
                     'excel_sheet': sheet_name
                 }
                 
@@ -366,17 +365,18 @@ class SCEINScraper:
 
 def main():
     """Main entry point"""
-    # Get credentials from environment variables (GitHub Secrets)
     SUPABASE_URL = os.getenv('SUPABASE_URL')
     SUPABASE_KEY = os.getenv('SUPABASE_KEY')
-    EXCEL_PATH = os.getenv('EXCEL_PATH', 'SCEIN_Fellowship_Data_Tracker_Google_Sheets__1_.xlsx')
+    EXCEL_PATH = os.getenv('EXCEL_PATH', 'SCEIN_Fellowship_Data_Tracker_Google_Sheets.xlsx')
+    MAX_URLS = os.getenv('MAX_URLS')  # Optional limit for testing
     
     if not SUPABASE_URL or not SUPABASE_KEY:
         raise ValueError("SUPABASE_URL and SUPABASE_KEY environment variables must be set")
     
-    # Initialize and run scraper
+    max_urls = int(MAX_URLS) if MAX_URLS else None
+    
     scraper = SCEINScraper(SUPABASE_URL, SUPABASE_KEY)
-    scraper.run(EXCEL_PATH)
+    scraper.run(EXCEL_PATH, max_urls=max_urls)
 
 
 if __name__ == '__main__':

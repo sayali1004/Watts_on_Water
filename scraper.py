@@ -60,7 +60,7 @@ class SCEINScraper:
                     continue
                 
                 # Extract parameter name (column 0)
-                parameter_name = row.iloc[0] if len(row) > 0 else None
+                parameter_name = row.iloc[5] if len(row) > 5 else None
                 if pd.isna(parameter_name):
                     parameter_name = None
                 

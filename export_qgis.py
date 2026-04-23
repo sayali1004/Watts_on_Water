@@ -125,12 +125,12 @@ def export_to_csv(data, output_file='county_permits_for_qgis.csv'):
         })
 
     df = pd.DataFrame(rows)
-    df = df.sort_values(['STATEFP', 'NAME', 'DATA_TYPE'])
+    df = df.sort_values(['STATEFP', 'NAME', 'CATEGORY'])
     df.to_csv(output_file, index=False)
 
     print(f"\n✅ Exported {len(df)} rows to {output_file}")
     print(f"\nBreakdown by type:")
-    print(df['DATA_TYPE'].value_counts().to_string())
+    print(df['CATEGORY'].value_counts().to_string())
     print(f"\nBreakdown by scope:")
     print(df['SCOPE'].value_counts().to_string())
 

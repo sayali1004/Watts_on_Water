@@ -1,29 +1,32 @@
 -- SCEIN Fellowship Data Tracker - Supabase Schema
--- Run this in your Supabase SQL Editor
+-- Updated rerunnable version for Supabase SQL Editor
 
 -- Enable PostGIS extension
 CREATE EXTENSION IF NOT EXISTS postgis;
 
--- Main table for all permits, incentives, and regulations
+-- ==================================
+-- MAIN TABLE
+-- ==================================
+
 CREATE TABLE IF NOT EXISTS permits_data (
     id BIGSERIAL PRIMARY KEY,
-    url TEXT UNIQUE NOT NULL,
+    url TEXT NOT NULL,
 
     -- Category (permit, incentive, regulation) — from Excel sheet name
     data_type TEXT CHECK (data_type IN ('permit', 'incentive', 'regulation')) NOT NULL,
 
     -- Excel columns
-    parameter_name TEXT,          -- Col 5:  Dataset Name
-    description TEXT,             -- Col 1:  Description
-    source_accreditation TEXT,    -- Col 7:  Source Accredidation
-    data_age TEXT,                -- Col 9:  Data Age
+    parameter_name TEXT,          -- Col 5: Dataset Name
+    description TEXT,             -- Col 1: Description
+    source_accreditation TEXT,    -- Col 7: Source Accreditation
+    data_age TEXT,                -- Col 9: Data Age
     owner_class TEXT,             -- Col 11: Owner Class (Federal/State/Local)
     item_type TEXT,               -- Col 19: Permit/Incentive/Regulation Type
-    applicable_system_types TEXT, -- Col 20: Applicable System Types (F/C/O PV etc.)
-    min_system_size_mw NUMERIC(10, 4),  -- Col 22: Min Applicable System Size [MW]
-    max_system_size_mw NUMERIC(10, 4),  -- Col 23: Max Applicable System Size [MW]
-    excel_sheet TEXT,
-    excel_row INTEGER,
+    applicable_system_types TEXT, -- Col 20: Applicable System Types
+    min_system_size_mw NUMERIC(10, 4),  -- Col 22
+    max_system_size_mw NUMERIC(10, 4),  -- Col 23
+    excel_sheet TEXT NOT NULL,
+    excel_row INTEGER NOT NULL,
 
     -- Location data
     county TEXT,
@@ -39,7 +42,7 @@ CREATE TABLE IF NOT EXISTS permits_data (
     expiry_date TEXT,
     last_updated TEXT,
 
-    -- Financial (Col 24 from Excel; also attempted from scraped page)
+    -- Financial
     cost NUMERIC(12, 2),
 
     -- Timeline
@@ -58,36 +61,77 @@ CREATE TABLE IF NOT EXISTS permits_data (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Add the composite unique constraint conditionally
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'unique_permit_row'
+    ) THEN
+        ALTER TABLE permits_data 
+        ADD CONSTRAINT unique_permit_row 
+        UNIQUE (url, data_type, excel_sheet, excel_row);
+    END IF;
+END $$;
+
 -- ==================================
 -- ALTER TABLE: add new columns to existing table
--- Run these if the table already exists (safe — IF NOT EXISTS equivalent via DO block)
 -- ==================================
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='permits_data' AND column_name='source_accreditation') THEN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'permits_data' AND column_name = 'source_accreditation'
+    ) THEN
         ALTER TABLE permits_data ADD COLUMN source_accreditation TEXT;
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='permits_data' AND column_name='data_age') THEN
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'permits_data' AND column_name = 'data_age'
+    ) THEN
         ALTER TABLE permits_data ADD COLUMN data_age TEXT;
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='permits_data' AND column_name='owner_class') THEN
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'permits_data' AND column_name = 'owner_class'
+    ) THEN
         ALTER TABLE permits_data ADD COLUMN owner_class TEXT;
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='permits_data' AND column_name='item_type') THEN
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'permits_data' AND column_name = 'item_type'
+    ) THEN
         ALTER TABLE permits_data ADD COLUMN item_type TEXT;
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='permits_data' AND column_name='applicable_system_types') THEN
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'permits_data' AND column_name = 'applicable_system_types'
+    ) THEN
         ALTER TABLE permits_data ADD COLUMN applicable_system_types TEXT;
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='permits_data' AND column_name='min_system_size_mw') THEN
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'permits_data' AND column_name = 'min_system_size_mw'
+    ) THEN
         ALTER TABLE permits_data ADD COLUMN min_system_size_mw NUMERIC(10, 4);
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='permits_data' AND column_name='max_system_size_mw') THEN
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'permits_data' AND column_name = 'max_system_size_mw'
+    ) THEN
         ALTER TABLE permits_data ADD COLUMN max_system_size_mw NUMERIC(10, 4);
     END IF;
 END $$;
 
--- Create indices for common queries
+-- ==================================
+-- INDEXES
+-- ==================================
 CREATE INDEX IF NOT EXISTS idx_permits_data_type ON permits_data(data_type);
 CREATE INDEX IF NOT EXISTS idx_permits_county ON permits_data(county);
 CREATE INDEX IF NOT EXISTS idx_permits_state ON permits_data(state);
@@ -96,13 +140,23 @@ CREATE INDEX IF NOT EXISTS idx_permits_scraped_at ON permits_data(scraped_at DES
 CREATE INDEX IF NOT EXISTS idx_permits_parameter_name ON permits_data(parameter_name);
 
 -- Full text search index
-CREATE INDEX IF NOT EXISTS idx_permits_full_text_search ON permits_data 
-USING gin(to_tsvector('english', COALESCE(parameter_name, '') || ' ' || COALESCE(description, '') || ' ' || COALESCE(full_text, '')));
+CREATE INDEX IF NOT EXISTS idx_permits_full_text_search
+ON permits_data
+USING gin (
+    to_tsvector(
+        'english',
+        COALESCE(parameter_name, '') || ' ' ||
+        COALESCE(description, '') || ' ' ||
+        COALESCE(full_text, '')
+    )
+);
 
 -- Spatial index
 CREATE INDEX IF NOT EXISTS idx_permits_location ON permits_data USING GIST(location);
 
--- Updated_at trigger
+-- ==================================
+-- UPDATED_AT TRIGGER
+-- ==================================
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -111,55 +165,72 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS update_permits_data_updated_at ON permits_data;
+
 CREATE TRIGGER update_permits_data_updated_at
     BEFORE UPDATE ON permits_data
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
--- Enable Row Level Security
+-- ==================================
+-- ROW LEVEL SECURITY
+-- ==================================
 ALTER TABLE permits_data ENABLE ROW LEVEL SECURITY;
 
--- Public read access
-CREATE POLICY "Public read access"
-    ON permits_data
-    FOR SELECT
-    TO anon, authenticated
-    USING (true);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'permits_data'
+          AND policyname = 'Public read access'
+    ) THEN
+        CREATE POLICY "Public read access"
+            ON permits_data
+            FOR SELECT
+            TO anon, authenticated
+            USING (true);
+    END IF;
 
--- Service role full access (for scraper)
-CREATE POLICY "Service role full access"
-    ON permits_data
-    FOR ALL
-    TO service_role
-    USING (true)
-    WITH CHECK (true);
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'permits_data'
+          AND policyname = 'Service role full access'
+    ) THEN
+        CREATE POLICY "Service role full access"
+            ON permits_data
+            FOR ALL
+            TO service_role
+            USING (true)
+            WITH CHECK (true);
+    END IF;
+END $$;
 
 -- ==================================
 -- VIEWS FOR ANALYSIS
 -- ==================================
 
--- View: Active permits only
 CREATE OR REPLACE VIEW active_permits AS
 SELECT *
 FROM permits_data
 WHERE status = 'active'
   AND data_type = 'permit';
 
--- View: Active incentives
 CREATE OR REPLACE VIEW active_incentives AS
 SELECT *
 FROM permits_data
 WHERE status = 'active'
   AND data_type = 'incentive';
 
--- View: Active regulations
 CREATE OR REPLACE VIEW active_regulations AS
 SELECT *
 FROM permits_data
 WHERE status = 'active'
   AND data_type = 'regulation';
 
--- View: Expiring soon (mentions dates in near future)
 CREATE OR REPLACE VIEW expiring_soon AS
 SELECT *
 FROM permits_data
@@ -167,47 +238,44 @@ WHERE status = 'active'
   AND expiry_date IS NOT NULL
   AND expiry_date != '';
 
--- View: California county summary
 CREATE OR REPLACE VIEW california_county_stats AS
-SELECT 
+SELECT
     county,
     data_type,
     status,
-    COUNT(*) as count,
-    AVG(cost) as avg_cost,
-    AVG(timeframe_days) as avg_timeframe_days,
-    MAX(scraped_at) as last_scraped
+    COUNT(*) AS count,
+    AVG(cost) AS avg_cost,
+    AVG(timeframe_days) AS avg_timeframe_days,
+    MAX(scraped_at) AS last_scraped
 FROM permits_data
 WHERE state = 'CA'
   AND county IS NOT NULL
 GROUP BY county, data_type, status
 ORDER BY county, data_type;
 
--- View: Data by state
 CREATE OR REPLACE VIEW state_summary AS
-SELECT 
+SELECT
     state,
     data_type,
     status,
-    COUNT(*) as total_records,
-    COUNT(CASE WHEN cost IS NOT NULL THEN 1 END) as records_with_cost,
-    COUNT(CASE WHEN timeframe_days IS NOT NULL THEN 1 END) as records_with_timeframe,
-    AVG(cost) as avg_cost,
-    AVG(timeframe_days) as avg_timeframe_days,
-    MAX(scraped_at) as last_scraped
+    COUNT(*) AS total_records,
+    COUNT(CASE WHEN cost IS NOT NULL THEN 1 END) AS records_with_cost,
+    COUNT(CASE WHEN timeframe_days IS NOT NULL THEN 1 END) AS records_with_timeframe,
+    AVG(cost) AS avg_cost,
+    AVG(timeframe_days) AS avg_timeframe_days,
+    MAX(scraped_at) AS last_scraped
 FROM permits_data
 GROUP BY state, data_type, status
 ORDER BY state, data_type;
 
--- View: Scraping health check
 CREATE OR REPLACE VIEW scraping_health AS
-SELECT 
+SELECT
     data_type,
     status,
-    COUNT(*) as count,
-    MIN(scraped_at) as oldest_scrape,
-    MAX(scraped_at) as newest_scrape,
-    COUNT(CASE WHEN error_message IS NOT NULL THEN 1 END) as error_count
+    COUNT(*) AS count,
+    MIN(scraped_at) AS oldest_scrape,
+    MAX(scraped_at) AS newest_scrape,
+    COUNT(CASE WHEN error_message IS NOT NULL THEN 1 END) AS error_count
 FROM permits_data
 GROUP BY data_type, status;
 
@@ -215,7 +283,6 @@ GROUP BY data_type, status;
 -- HELPER FUNCTIONS
 -- ==================================
 
--- Function: Search permits by text
 CREATE OR REPLACE FUNCTION search_permits(search_query TEXT)
 RETURNS TABLE (
     id BIGINT,
@@ -228,7 +295,7 @@ RETURNS TABLE (
 ) AS $$
 BEGIN
     RETURN QUERY
-    SELECT 
+    SELECT
         p.id,
         p.url,
         p.data_type,
@@ -236,17 +303,19 @@ BEGIN
         p.county,
         p.state,
         ts_rank(
-            to_tsvector('english', 
-                COALESCE(p.parameter_name, '') || ' ' || 
-                COALESCE(p.description, '') || ' ' || 
+            to_tsvector(
+                'english',
+                COALESCE(p.parameter_name, '') || ' ' ||
+                COALESCE(p.description, '') || ' ' ||
                 COALESCE(p.full_text, '')
             ),
             plainto_tsquery('english', search_query)
-        ) as rank
+        ) AS rank
     FROM permits_data p
-    WHERE to_tsvector('english', 
-            COALESCE(p.parameter_name, '') || ' ' || 
-            COALESCE(p.description, '') || ' ' || 
+    WHERE to_tsvector(
+            'english',
+            COALESCE(p.parameter_name, '') || ' ' ||
+            COALESCE(p.description, '') || ' ' ||
             COALESCE(p.full_text, '')
           ) @@ plainto_tsquery('english', search_query)
     ORDER BY rank DESC
@@ -254,7 +323,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Function: Get permits by county
 CREATE OR REPLACE FUNCTION get_county_permits(county_name TEXT)
 RETURNS SETOF permits_data AS $$
 BEGIN
@@ -266,25 +334,19 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Function: Geocode county (placeholder - integrate with geocoding service)
 CREATE OR REPLACE FUNCTION geocode_county_batch()
 RETURNS INTEGER AS $$
 DECLARE
     updated_count INTEGER := 0;
 BEGIN
-    -- This is a placeholder
-    -- Integrate with a geocoding service to populate location column
-    -- For California counties, you can use a static lookup table
-    
     RAISE NOTICE 'Geocoding not yet implemented. Integrate with geocoding service.';
     RETURN updated_count;
 END;
 $$ LANGUAGE plpgsql;
 
 -- ==================================
--- CALIFORNIA COUNTY REFERENCE TABLE (Optional)
+-- CALIFORNIA COUNTY REFERENCE TABLE
 -- ==================================
-
 CREATE TABLE IF NOT EXISTS california_counties (
     id SERIAL PRIMARY KEY,
     county_name TEXT UNIQUE NOT NULL,
@@ -296,7 +358,6 @@ CREATE TABLE IF NOT EXISTS california_counties (
     area_sq_miles NUMERIC(10, 2)
 );
 
--- Sample California counties (add more as needed)
 INSERT INTO california_counties (county_name, fips_code, latitude, longitude, location) VALUES
 ('Alameda', '06001', 37.6463, -121.8852, ST_SetSRID(ST_MakePoint(-121.8852, 37.6463), 4326)),
 ('Alpine', '06003', 38.5893, -119.8165, ST_SetSRID(ST_MakePoint(-119.8165, 38.5893), 4326)),
@@ -312,9 +373,12 @@ INSERT INTO california_counties (county_name, fips_code, latitude, longitude, lo
 ('Humboldt', '06023', 40.7450, -123.8695, ST_SetSRID(ST_MakePoint(-123.8695, 40.7450), 4326))
 ON CONFLICT (county_name) DO NOTHING;
 
--- Create index
-CREATE INDEX IF NOT EXISTS idx_ca_counties_location ON california_counties USING GIST(location);
+CREATE INDEX IF NOT EXISTS idx_ca_counties_location
+ON california_counties USING GIST(location);
 
+-- ==================================
+-- COMMENTS
+-- ==================================
 COMMENT ON TABLE permits_data IS 'Main table storing permits, incentives, and regulations from SCEIN Fellowship tracker';
 COMMENT ON COLUMN permits_data.location IS 'Geospatial point for mapping in QGIS (EPSG:4326)';
 COMMENT ON VIEW california_county_stats IS 'Summary statistics for California counties';

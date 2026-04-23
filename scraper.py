@@ -345,7 +345,7 @@ class SCEINScraper:
                 
                 result = self.supabase.table('permits_data').upsert(
                     batch,
-                    on_conflict='url'
+                    on_conflict='url,data_type,excel_sheet,excel_row'
                 ).execute()
                 
                 logger.info(f"Saved batch {i//batch_size + 1}: {len(batch)} records")

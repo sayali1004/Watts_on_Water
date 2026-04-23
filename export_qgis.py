@@ -8,7 +8,10 @@ Join with tl_2025_us_county.shp using NAME + STATEFP fields.
 import os
 import re
 import pandas as pd
+from dotenv import load_dotenv
 from supabase import create_client
+
+load_dotenv()
 
 STATE_ABBR_TO_FIPS = {
     'AL': '01', 'AK': '02', 'AZ': '04', 'AR': '05', 'CA': '06',
@@ -24,8 +27,8 @@ STATE_ABBR_TO_FIPS = {
     'WY': '56', 'PR': '72', 'US': '00'
 }
 
-SUPABASE_URL = os.getenv('SUPABASE_URL', 'https://kvgvutzrlmstberrsyzv.supabase.co')
-SUPABASE_KEY = os.getenv('SUPABASE_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt2Z3Z1dHpybG1zdGJlcnJzeXp2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTYxMjY1NCwiZXhwIjoyMDkxMTg4NjU0fQ.lI_9aYyO96nEuqprEOXUf_RB0zeTE5RartbgR-G4oNQ')
+SUPABASE_URL = os.getenv('SUPABASE_URL')
+SUPABASE_KEY = os.getenv('SUPABASE_KEY')
 
 
 def extract_county(param_name):

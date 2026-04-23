@@ -6,8 +6,11 @@ Uses comprehensive county-to-state lookup from US Census data
 import os
 import re
 import pandas as pd
+from dotenv import load_dotenv
 from supabase import create_client
 from collections import defaultdict
+
+load_dotenv()
 
 # Import the county lookup (you'll need to download county_state_lookup.py)
 try:
@@ -35,8 +38,8 @@ STATE_FIPS_TO_ABBR = {
 STATE_ABBR_TO_FIPS = {v: k for k, v in STATE_FIPS_TO_ABBR.items()}
 
 # Supabase credentials - REPLACE WITH YOURS
-SUPABASE_URL = 'https://kvgvutzrlmstberrsyzv.supabase.co'
-SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt2Z3Z1dHpybG1zdGJlcnJzeXp2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTYxMjY1NCwiZXhwIjoyMDkxMTg4NjU0fQ.lI_9aYyO96nEuqprEOXUf_RB0zeTE5RartbgR-G4oNQ'
+SUPABASE_URL = os.getenv('SUPABASE_URL')
+SUPABASE_KEY = os.getenv('SUPABASE_KEY')
 
 def extract_county_and_state(parameter_name, description=None):
     """

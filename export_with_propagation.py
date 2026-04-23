@@ -9,8 +9,11 @@ import os
 import re
 import pandas as pd
 import geopandas as gpd
+from dotenv import load_dotenv
 from supabase import create_client
 from collections import defaultdict
+
+load_dotenv()
 
 # Import county lookup
 try:
@@ -37,8 +40,8 @@ STATE_ABBR_TO_FIPS = {v: k for k, v in STATE_FIPS_TO_ABBR.items()}
 # Credentials from environment variables
 # Credentials
 
-SUPABASE_URL = os.getenv('SUPABASE_URL', 'https://kvgvutzrlmstberrsyzv.supabase.co')
-SUPABASE_KEY = os.getenv('SUPABASE_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt2Z3Z1dHpybG1zdGJlcnJzeXp2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTYxMjY1NCwiZXhwIjoyMDkxMTg4NjU0fQ.lI_9aYyO96nEuqprEOXUf_RB0zeTE5RartbgR-G4oNQ')
+SUPABASE_URL = os.getenv('SUPABASE_URL')
+SUPABASE_KEY = os.getenv('SUPABASE_KEY')
 
 def download_shapefile_if_missing():
     """Download US county shapefile from Census if not present"""

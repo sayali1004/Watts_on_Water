@@ -2,10 +2,16 @@
 Quick script to check what your Supabase data actually looks like
 """
 import os
+from dotenv import load_dotenv
 from supabase import create_client
 
-SUPABASE_URL = 'https://kvgvutzrlmstberrsyzv.supabase.co'  # Replace with yours
-SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt2Z3Z1dHpybG1zdGJlcnJzeXp2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTYxMjY1NCwiZXhwIjoyMDkxMTg4NjU0fQ.lI_9aYyO96nEuqprEOXUf_RB0zeTE5RartbgR-G4oNQ'  # Replace with yours
+load_dotenv()
+
+SUPABASE_URL = os.getenv('SUPABASE_URL')
+SUPABASE_KEY = os.getenv('SUPABASE_KEY')
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set in .env or environment")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 

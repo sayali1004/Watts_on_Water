@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS permits_data (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE permits_data DROP CONSTRAINT IF EXISTS permits_data_url_key;
 
 -- Add the composite unique constraint conditionally
 DO $$

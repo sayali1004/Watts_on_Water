@@ -8,48 +8,88 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 CREATE TABLE IF NOT EXISTS permits_data (
     id BIGSERIAL PRIMARY KEY,
     url TEXT UNIQUE NOT NULL,
-    
-    -- Type (permit, incentive, regulation)
+
+    -- Category (permit, incentive, regulation) — from Excel sheet name
     data_type TEXT CHECK (data_type IN ('permit', 'incentive', 'regulation')) NOT NULL,
-    
-    -- Original Excel data
-    parameter_name TEXT,
-    description TEXT,
+
+    -- Excel columns
+    parameter_name TEXT,          -- Col 5:  Dataset Name
+    description TEXT,             -- Col 1:  Description
+    source_accreditation TEXT,    -- Col 7:  Source Accredidation
+    data_age TEXT,                -- Col 9:  Data Age
+    owner_class TEXT,             -- Col 11: Owner Class (Federal/State/Local)
+    item_type TEXT,               -- Col 19: Permit/Incentive/Regulation Type
+    applicable_system_types TEXT, -- Col 20: Applicable System Types (F/C/O PV etc.)
+    type_ii TEXT,                 -- New col: Water/Solar distinction (add col index in scraper when ready)
+    min_system_size_mw NUMERIC(10, 4),  -- Col 22: Min Applicable System Size [MW]
+    max_system_size_mw NUMERIC(10, 4),  -- Col 23: Max Applicable System Size [MW]
     excel_sheet TEXT,
     excel_row INTEGER,
-    
+
     -- Location data
     county TEXT,
     state TEXT,
-    
+
     -- Scraped metadata
     source_html_title TEXT,
     full_text TEXT,
     requirements TEXT,
-    
+
     -- Dates
-    effective_date TEXT,  -- Storing as text since dates vary in format
+    effective_date TEXT,
     expiry_date TEXT,
     last_updated TEXT,
-    
-    -- Financial
+
+    -- Financial (Col 24 from Excel; also attempted from scraped page)
     cost NUMERIC(12, 2),
-    
+
     -- Timeline
     timeframe_days INTEGER,
-    
+
     -- Status
     status TEXT CHECK (status IN ('active', 'expired', 'pending', 'amended', 'error', 'unknown')) DEFAULT 'unknown',
     error_message TEXT,
-    
-    -- Geospatial (optional - can be added later via geocoding)
+
+    -- Geospatial
     location GEOGRAPHY(POINT, 4326),
-    
+
     -- Timestamps
     scraped_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ==================================
+-- ALTER TABLE: add new columns to existing table
+-- Run these if the table already exists (safe — IF NOT EXISTS equivalent via DO block)
+-- ==================================
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='permits_data' AND column_name='source_accreditation') THEN
+        ALTER TABLE permits_data ADD COLUMN source_accreditation TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='permits_data' AND column_name='data_age') THEN
+        ALTER TABLE permits_data ADD COLUMN data_age TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='permits_data' AND column_name='owner_class') THEN
+        ALTER TABLE permits_data ADD COLUMN owner_class TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='permits_data' AND column_name='item_type') THEN
+        ALTER TABLE permits_data ADD COLUMN item_type TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='permits_data' AND column_name='applicable_system_types') THEN
+        ALTER TABLE permits_data ADD COLUMN applicable_system_types TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='permits_data' AND column_name='type_ii') THEN
+        ALTER TABLE permits_data ADD COLUMN type_ii TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='permits_data' AND column_name='min_system_size_mw') THEN
+        ALTER TABLE permits_data ADD COLUMN min_system_size_mw NUMERIC(10, 4);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='permits_data' AND column_name='max_system_size_mw') THEN
+        ALTER TABLE permits_data ADD COLUMN max_system_size_mw NUMERIC(10, 4);
+    END IF;
+END $$;
 
 -- Create indices for common queries
 CREATE INDEX IF NOT EXISTS idx_permits_data_type ON permits_data(data_type);

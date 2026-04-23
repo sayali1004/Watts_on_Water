@@ -47,42 +47,61 @@ class SCEINScraper:
             # Column 8 (I): Source URL
             
             for idx, row in df.iterrows():
-                # Extract URL from column 8 (Column I in Excel)
-                url = row.iloc[8] if len(row) > 8 else None
-                
-                if pd.isna(url) or not isinstance(url, str) or '[BLANK]' in url:
+                def cell(col):
+                    v = row.iloc[col] if len(row) > col else None
+                    return None if v is None or (isinstance(v, float) and pd.isna(v)) else v
+
+                url = cell(8)
+                if not url or not isinstance(url, str) or '[BLANK]' in url:
                     continue
-                
-                # Clean URL
                 url = url.strip()
                 if not url.startswith('http'):
                     continue
-                
-                # Extract parameter name from column 5 (Column F in Excel)
-                parameter_name = row.iloc[5] if len(row) > 5 else None
-                if pd.isna(parameter_name):
-                    parameter_name = None
-                
-                # Extract description from column 1 (Column B in Excel)
-                description = row.iloc[1] if len(row) > 1 else None
-                if pd.isna(description):
-                    description = None
-                
-                # Extract county from parameter name if possible
-                county = self._extract_county_from_name(parameter_name)
-                
-                # Create record
+
+                parameter_name  = cell(5)   # Dataset Name
+                description     = cell(1)   # Description
+                source_accreditation = cell(7)   # Source Accredidation
+                data_age        = cell(9)   # Data Age
+                owner_class     = cell(11)  # Owner Class
+                item_type       = cell(19)  # Permit/Incentive/Regulation Type
+                applicable_system_types = cell(20)  # Applicable System Types
+                min_system_size_mw = cell(22)  # Min Applicable System Size [MW]
+                max_system_size_mw = cell(23)  # Max Applicable System Size [MW]
+                excel_cost      = cell(24)  # Permit/Incentive/Regulation Cost [$]
+                # type_ii: update col index below once added to Excel
+                type_ii         = None  # placeholder — set to cell(N) when column is added
+
+                county = self._extract_county_from_name(str(parameter_name) if parameter_name else None)
+
+                def to_str(v):
+                    return str(v).strip() if v is not None else None
+
+                def to_float(v):
+                    try:
+                        return float(v) if v is not None else None
+                    except (ValueError, TypeError):
+                        return None
+
                 record = {
                     'url': url,
-                    'data_type': sheet_name.lower().rstrip('s'),  # 'permit', 'incentive', or 'regulation'
-                    'parameter_name': parameter_name,
-                    'description': str(description) if description else None,
+                    'data_type': sheet_name.lower().rstrip('s'),
+                    'parameter_name': to_str(parameter_name),
+                    'description': to_str(description),
+                    'source_accreditation': to_str(source_accreditation),
+                    'data_age': to_str(data_age),
+                    'owner_class': to_str(owner_class),
+                    'item_type': to_str(item_type),
+                    'applicable_system_types': to_str(applicable_system_types),
+                    'type_ii': to_str(type_ii),
+                    'min_system_size_mw': to_float(min_system_size_mw),
+                    'max_system_size_mw': to_float(max_system_size_mw),
+                    'cost': to_float(excel_cost),
                     'county': county,
-                    'state': self._extract_state_from_name(parameter_name),
-                    'excel_row': idx + 4,  # Actual row in Excel (accounting for skipped rows)
-                    'excel_sheet': sheet_name
+                    'state': self._extract_state_from_name(str(parameter_name) if parameter_name else None),
+                    'excel_row': idx + 4,
+                    'excel_sheet': sheet_name,
                 }
-                
+
                 all_records.append(record)
         
         logger.info(f"Total records to scrape: {len(all_records)}")

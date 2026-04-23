@@ -92,22 +92,37 @@ def export_to_csv(data, output_file='county_permits_for_qgis.csv'):
         scope = get_scope(param_name, description)
         state_fips = STATE_ABBR_TO_FIPS.get(state, '') if state else ''
 
+        def val(key):
+            v = record.get(key)
+            return '' if v is None else v
+
         rows.append({
-            'NAME': county or '',          # Join field — matches shapefile NAME column
-            'STATEFP': state_fips,         # Join field — matches shapefile STATEFP column
+            # -- QGIS join fields --
+            'NAME': county or '',       # matches shapefile NAME column
+            'STATEFP': state_fips,      # matches shapefile STATEFP column
             'STATE_ABBR': state or '',
-            'DATA_TYPE': record.get('data_type', ''),
-            'SCOPE': scope,
-            'PARAMETER_NAME': param_name or '',
-            'DESCRIPTION': description or '',
-            'URL': record.get('url', ''),
-            'STATUS': record.get('status', ''),
-            'COST': record.get('cost', ''),
-            'TIMEFRAME_DAYS': record.get('timeframe_days', ''),
-            'EFFECTIVE_DATE': record.get('effective_date', ''),
-            'EXPIRY_DATE': record.get('expiry_date', ''),
-            'LAST_UPDATED': record.get('last_updated', ''),
-            'SCRAPED_AT': record.get('scraped_at', ''),
+            'SCOPE': scope,             # county / state / federal / unknown
+
+            # -- Requested output columns --
+            'CATEGORY': val('data_type'),               # Permit / Incentive / Regulation
+            'OWNER_CLASS': val('owner_class'),           # Federal / State / Local
+            'ITEM_TYPE': val('item_type'),               # e.g. Solar, Net Metering, Grant Program
+            'TYPE_II': val('type_ii'),                   # Water / Solar (once column added to Excel)
+            'DATASET_NAME': val('parameter_name'),       # Dataset Name (col 5)
+            'SOURCE_ACCREDITATION': val('source_accreditation'),
+            'URL': val('url'),
+            'DATA_AGE': val('data_age'),
+            'DESCRIPTION': val('description'),
+            'APPLICABLE_SYSTEM_TYPES': val('applicable_system_types'),
+            'MIN_SYSTEM_SIZE_MW': val('min_system_size_mw'),
+            'MAX_SYSTEM_SIZE_MW': val('max_system_size_mw'),
+            'COST': val('cost'),
+
+            # -- Scraped fields --
+            'STATUS': val('status'),
+            'EFFECTIVE_DATE': val('effective_date'),
+            'EXPIRY_DATE': val('expiry_date'),
+            'TIMEFRAME_DAYS': val('timeframe_days'),
         })
 
     df = pd.DataFrame(rows)

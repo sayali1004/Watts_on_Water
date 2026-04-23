@@ -4,3 +4,8 @@ __pycache__/
 *.log
 scraped_data.csv
 .DS_Store
+tl_2025_us_county.shp
+tl_2025_us_county.zip
+scein-pipeline.tar.gz
+SCEIN_Fellowship_Data_Tracker_Google_Sheets__1_.xlsx
+README_local.md

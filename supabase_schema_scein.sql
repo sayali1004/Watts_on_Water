@@ -1,0 +1,285 @@
+-- SCEIN Fellowship Data Tracker - Supabase Schema
+-- Run this in your Supabase SQL Editor
+
+-- Enable PostGIS extension
+CREATE EXTENSION IF NOT EXISTS postgis;
+
+-- Main table for all permits, incentives, and regulations
+CREATE TABLE IF NOT EXISTS permits_data (
+    id BIGSERIAL PRIMARY KEY,
+    url TEXT UNIQUE NOT NULL,
+    
+    -- Type (permit, incentive, regulation)
+    data_type TEXT CHECK (data_type IN ('permit', 'incentive', 'regulation')) NOT NULL,
+    
+    -- Original Excel data
+    parameter_name TEXT,
+    description TEXT,
+    excel_sheet TEXT,
+    excel_row INTEGER,
+    
+    -- Location data
+    county TEXT,
+    state TEXT,
+    
+    -- Scraped metadata
+    source_html_title TEXT,
+    full_text TEXT,
+    requirements TEXT,
+    
+    -- Dates
+    effective_date TEXT,  -- Storing as text since dates vary in format
+    expiry_date TEXT,
+    last_updated TEXT,
+    
+    -- Financial
+    cost NUMERIC(12, 2),
+    
+    -- Timeline
+    timeframe_days INTEGER,
+    
+    -- Status
+    status TEXT CHECK (status IN ('active', 'expired', 'pending', 'amended', 'error', 'unknown')) DEFAULT 'unknown',
+    error_message TEXT,
+    
+    -- Geospatial (optional - can be added later via geocoding)
+    location GEOGRAPHY(POINT, 4326),
+    
+    -- Timestamps
+    scraped_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Create indices for common queries
+CREATE INDEX IF NOT EXISTS idx_permits_data_type ON permits_data(data_type);
+CREATE INDEX IF NOT EXISTS idx_permits_county ON permits_data(county);
+CREATE INDEX IF NOT EXISTS idx_permits_state ON permits_data(state);
+CREATE INDEX IF NOT EXISTS idx_permits_status ON permits_data(status);
+CREATE INDEX IF NOT EXISTS idx_permits_scraped_at ON permits_data(scraped_at DESC);
+CREATE INDEX IF NOT EXISTS idx_permits_parameter_name ON permits_data(parameter_name);
+
+-- Full text search index
+CREATE INDEX IF NOT EXISTS idx_permits_full_text_search ON permits_data 
+USING gin(to_tsvector('english', COALESCE(parameter_name, '') || ' ' || COALESCE(description, '') || ' ' || COALESCE(full_text, '')));
+
+-- Spatial index
+CREATE INDEX IF NOT EXISTS idx_permits_location ON permits_data USING GIST(location);
+
+-- Updated_at trigger
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_permits_data_updated_at
+    BEFORE UPDATE ON permits_data
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Enable Row Level Security
+ALTER TABLE permits_data ENABLE ROW LEVEL SECURITY;
+
+-- Public read access
+CREATE POLICY "Public read access"
+    ON permits_data
+    FOR SELECT
+    TO anon, authenticated
+    USING (true);
+
+-- Service role full access (for scraper)
+CREATE POLICY "Service role full access"
+    ON permits_data
+    FOR ALL
+    TO service_role
+    USING (true)
+    WITH CHECK (true);
+
+-- ==================================
+-- VIEWS FOR ANALYSIS
+-- ==================================
+
+-- View: Active permits only
+CREATE OR REPLACE VIEW active_permits AS
+SELECT *
+FROM permits_data
+WHERE status = 'active'
+  AND data_type = 'permit';
+
+-- View: Active incentives
+CREATE OR REPLACE VIEW active_incentives AS
+SELECT *
+FROM permits_data
+WHERE status = 'active'
+  AND data_type = 'incentive';
+
+-- View: Active regulations
+CREATE OR REPLACE VIEW active_regulations AS
+SELECT *
+FROM permits_data
+WHERE status = 'active'
+  AND data_type = 'regulation';
+
+-- View: Expiring soon (mentions dates in near future)
+CREATE OR REPLACE VIEW expiring_soon AS
+SELECT *
+FROM permits_data
+WHERE status = 'active'
+  AND expiry_date IS NOT NULL
+  AND expiry_date != '';
+
+-- View: California county summary
+CREATE OR REPLACE VIEW california_county_stats AS
+SELECT 
+    county,
+    data_type,
+    status,
+    COUNT(*) as count,
+    AVG(cost) as avg_cost,
+    AVG(timeframe_days) as avg_timeframe_days,
+    MAX(scraped_at) as last_scraped
+FROM permits_data
+WHERE state = 'CA'
+  AND county IS NOT NULL
+GROUP BY county, data_type, status
+ORDER BY county, data_type;
+
+-- View: Data by state
+CREATE OR REPLACE VIEW state_summary AS
+SELECT 
+    state,
+    data_type,
+    status,
+    COUNT(*) as total_records,
+    COUNT(CASE WHEN cost IS NOT NULL THEN 1 END) as records_with_cost,
+    COUNT(CASE WHEN timeframe_days IS NOT NULL THEN 1 END) as records_with_timeframe,
+    AVG(cost) as avg_cost,
+    AVG(timeframe_days) as avg_timeframe_days,
+    MAX(scraped_at) as last_scraped
+FROM permits_data
+GROUP BY state, data_type, status
+ORDER BY state, data_type;
+
+-- View: Scraping health check
+CREATE OR REPLACE VIEW scraping_health AS
+SELECT 
+    data_type,
+    status,
+    COUNT(*) as count,
+    MIN(scraped_at) as oldest_scrape,
+    MAX(scraped_at) as newest_scrape,
+    COUNT(CASE WHEN error_message IS NOT NULL THEN 1 END) as error_count
+FROM permits_data
+GROUP BY data_type, status;
+
+-- ==================================
+-- HELPER FUNCTIONS
+-- ==================================
+
+-- Function: Search permits by text
+CREATE OR REPLACE FUNCTION search_permits(search_query TEXT)
+RETURNS TABLE (
+    id BIGINT,
+    url TEXT,
+    data_type TEXT,
+    parameter_name TEXT,
+    county TEXT,
+    state TEXT,
+    rank REAL
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        p.id,
+        p.url,
+        p.data_type,
+        p.parameter_name,
+        p.county,
+        p.state,
+        ts_rank(
+            to_tsvector('english', 
+                COALESCE(p.parameter_name, '') || ' ' || 
+                COALESCE(p.description, '') || ' ' || 
+                COALESCE(p.full_text, '')
+            ),
+            plainto_tsquery('english', search_query)
+        ) as rank
+    FROM permits_data p
+    WHERE to_tsvector('english', 
+            COALESCE(p.parameter_name, '') || ' ' || 
+            COALESCE(p.description, '') || ' ' || 
+            COALESCE(p.full_text, '')
+          ) @@ plainto_tsquery('english', search_query)
+    ORDER BY rank DESC
+    LIMIT 100;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function: Get permits by county
+CREATE OR REPLACE FUNCTION get_county_permits(county_name TEXT)
+RETURNS SETOF permits_data AS $$
+BEGIN
+    RETURN QUERY
+    SELECT *
+    FROM permits_data
+    WHERE county ILIKE county_name
+    ORDER BY data_type, parameter_name;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function: Geocode county (placeholder - integrate with geocoding service)
+CREATE OR REPLACE FUNCTION geocode_county_batch()
+RETURNS INTEGER AS $$
+DECLARE
+    updated_count INTEGER := 0;
+BEGIN
+    -- This is a placeholder
+    -- Integrate with a geocoding service to populate location column
+    -- For California counties, you can use a static lookup table
+    
+    RAISE NOTICE 'Geocoding not yet implemented. Integrate with geocoding service.';
+    RETURN updated_count;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ==================================
+-- CALIFORNIA COUNTY REFERENCE TABLE (Optional)
+-- ==================================
+
+CREATE TABLE IF NOT EXISTS california_counties (
+    id SERIAL PRIMARY KEY,
+    county_name TEXT UNIQUE NOT NULL,
+    fips_code TEXT,
+    latitude NUMERIC(10, 7),
+    longitude NUMERIC(10, 7),
+    location GEOGRAPHY(POINT, 4326),
+    population INTEGER,
+    area_sq_miles NUMERIC(10, 2)
+);
+
+-- Sample California counties (add more as needed)
+INSERT INTO california_counties (county_name, fips_code, latitude, longitude, location) VALUES
+('Alameda', '06001', 37.6463, -121.8852, ST_SetSRID(ST_MakePoint(-121.8852, 37.6463), 4326)),
+('Alpine', '06003', 38.5893, -119.8165, ST_SetSRID(ST_MakePoint(-119.8165, 38.5893), 4326)),
+('Amador', '06005', 38.3488, -120.5475, ST_SetSRID(ST_MakePoint(-120.5475, 38.3488), 4326)),
+('Butte', '06007', 39.6560, -121.5992, ST_SetSRID(ST_MakePoint(-121.5992, 39.6560), 4326)),
+('Calaveras', '06009', 38.2083, -120.5405, ST_SetSRID(ST_MakePoint(-120.5405, 38.2083), 4326)),
+('Colusa', '06011', 39.1794, -122.2418, ST_SetSRID(ST_MakePoint(-122.2418, 39.1794), 4326)),
+('Contra Costa', '06013', 37.9190, -121.9618, ST_SetSRID(ST_MakePoint(-121.9618, 37.9190), 4326)),
+('Del Norte', '06015', 41.7427, -123.9902, ST_SetSRID(ST_MakePoint(-123.9902, 41.7427), 4326)),
+('El Dorado', '06017', 38.7855, -120.5325, ST_SetSRID(ST_MakePoint(-120.5325, 38.7855), 4326)),
+('Fresno', '06019', 36.7378, -119.7871, ST_SetSRID(ST_MakePoint(-119.7871, 36.7378), 4326)),
+('Glenn', '06021', 39.5984, -122.3919, ST_SetSRID(ST_MakePoint(-122.3919, 39.5984), 4326)),
+('Humboldt', '06023', 40.7450, -123.8695, ST_SetSRID(ST_MakePoint(-123.8695, 40.7450), 4326))
+ON CONFLICT (county_name) DO NOTHING;
+
+-- Create index
+CREATE INDEX IF NOT EXISTS idx_ca_counties_location ON california_counties USING GIST(location);
+
+COMMENT ON TABLE permits_data IS 'Main table storing permits, incentives, and regulations from SCEIN Fellowship tracker';
+COMMENT ON COLUMN permits_data.location IS 'Geospatial point for mapping in QGIS (EPSG:4326)';
+COMMENT ON VIEW california_county_stats IS 'Summary statistics for California counties';
+COMMENT ON FUNCTION search_permits IS 'Full-text search across all permit data';

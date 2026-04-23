@@ -20,7 +20,6 @@ CREATE TABLE IF NOT EXISTS permits_data (
     owner_class TEXT,             -- Col 11: Owner Class (Federal/State/Local)
     item_type TEXT,               -- Col 19: Permit/Incentive/Regulation Type
     applicable_system_types TEXT, -- Col 20: Applicable System Types (F/C/O PV etc.)
-    type_ii TEXT,                 -- New col: Water/Solar distinction (add col index in scraper when ready)
     min_system_size_mw NUMERIC(10, 4),  -- Col 22: Min Applicable System Size [MW]
     max_system_size_mw NUMERIC(10, 4),  -- Col 23: Max Applicable System Size [MW]
     excel_sheet TEXT,
@@ -79,9 +78,6 @@ BEGIN
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='permits_data' AND column_name='applicable_system_types') THEN
         ALTER TABLE permits_data ADD COLUMN applicable_system_types TEXT;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='permits_data' AND column_name='type_ii') THEN
-        ALTER TABLE permits_data ADD COLUMN type_ii TEXT;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='permits_data' AND column_name='min_system_size_mw') THEN
         ALTER TABLE permits_data ADD COLUMN min_system_size_mw NUMERIC(10, 4);

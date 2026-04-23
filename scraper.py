@@ -68,9 +68,6 @@ class SCEINScraper:
                 min_system_size_mw = cell(22)  # Min Applicable System Size [MW]
                 max_system_size_mw = cell(23)  # Max Applicable System Size [MW]
                 excel_cost      = cell(24)  # Permit/Incentive/Regulation Cost [$]
-                # type_ii: update col index below once added to Excel
-                type_ii         = None  # placeholder — set to cell(N) when column is added
-
                 county = self._extract_county_from_name(str(parameter_name) if parameter_name else None)
 
                 def to_str(v):
@@ -92,7 +89,6 @@ class SCEINScraper:
                     'owner_class': to_str(owner_class),
                     'item_type': to_str(item_type),
                     'applicable_system_types': to_str(applicable_system_types),
-                    'type_ii': to_str(type_ii),
                     'min_system_size_mw': to_float(min_system_size_mw),
                     'max_system_size_mw': to_float(max_system_size_mw),
                     'cost': to_float(excel_cost),

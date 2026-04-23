@@ -107,7 +107,6 @@ def export_to_csv(data, output_file='county_permits_for_qgis.csv'):
             'CATEGORY': val('data_type'),               # Permit / Incentive / Regulation
             'OWNER_CLASS': val('owner_class'),           # Federal / State / Local
             'ITEM_TYPE': val('item_type'),               # e.g. Solar, Net Metering, Grant Program
-            'TYPE_II': val('type_ii'),                   # Water / Solar (once column added to Excel)
             'DATASET_NAME': val('parameter_name'),       # Dataset Name (col 5)
             'SOURCE_ACCREDITATION': val('source_accreditation'),
             'URL': val('url'),

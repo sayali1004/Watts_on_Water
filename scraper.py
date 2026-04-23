@@ -343,10 +343,9 @@ class SCEINScraper:
             for i in range(0, len(cleaned_data), batch_size):
                 batch = cleaned_data[i:i+batch_size]
                 
-                # Use the composite unique index for conflict resolution
                 result = self.supabase.table('permits_data').upsert(
                     batch,
-                    on_conflict='url,data_type,excel_sheet,excel_row'
+                    on_conflict='url'
                 ).execute()
                 
                 logger.info(f"Saved batch {i//batch_size + 1}: {len(batch)} records")

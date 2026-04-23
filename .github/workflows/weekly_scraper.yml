@@ -1,36 +1,33 @@
 name: Scrape SCEIN Data
+
 on:
   schedule:
-    # Every 30 minutes, Monday-Friday, 8AM-6PM UTC
-    - cron: '*/30 8-18 * * 1-5'
-  workflow_dispatch:
-  push:
-    branches: [ main ]
-    paths:
-      - 'scraper.py'
+    - cron: '0 8 1 * *'  # 8 AM on the 1st of every month
+  workflow_dispatch:     # also allows manual trigger from GitHub Actions tab
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-    
+
     - name: Download latest Google Sheet
       run: |
-        curl -L "https://docs.google.com/spreadsheets/d/1wb4dJT7LvvF29jQr2foik9OB6D-DLILWudaY47toibY/export?format=xlsx" -o "SCEIN Fellowship_Data Tracker Google Sheets_1.xlsx"
-    
+        curl -L "https://docs.google.com/spreadsheets/d/1wb4dJT7LvvF29jQr2foik9OB6D-DLILWudaY47toibY/export?format=xlsx" \
+          -o "SCEIN Fellowship_Data Tracker Google Sheets_1.xlsx"
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-    
+
     - name: Install dependencies
       run: |
         pip install --upgrade pip
         pip install pandas openpyxl requests beautifulsoup4 supabase lxml python-dateutil
-    
+
     - name: Run scraper
       env:
         SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

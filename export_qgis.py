@@ -11,6 +11,11 @@ import pandas as pd
 from dotenv import load_dotenv
 from supabase import create_client
 
+try:
+    from county_state_lookup import COUNTY_TO_STATE_FIPS
+except ImportError:
+    COUNTY_TO_STATE_FIPS = {}
+
 load_dotenv()
 
 STATE_ABBR_TO_FIPS = {
@@ -27,6 +32,39 @@ STATE_ABBR_TO_FIPS = {
     'WY': '56', 'PR': '72', 'US': '00'
 }
 
+FIPS_TO_ABBR = {v: k for k, v in STATE_ABBR_TO_FIPS.items()}
+
+# All 50 states + DC + PR — full name and abbreviation patterns
+STATE_PATTERNS = {
+    'AL': ['Alabama', ' AL,', ' AL '], 'AK': ['Alaska', ' AK,', ' AK '],
+    'AZ': ['Arizona', ' AZ,', ' AZ '], 'AR': ['Arkansas', ' AR,', ' AR '],
+    'CA': ['California', ' CA,', ' CA '], 'CO': ['Colorado', ' CO,', ' CO '],
+    'CT': ['Connecticut', ' CT,', ' CT '], 'DE': ['Delaware', ' DE,', ' DE '],
+    'FL': ['Florida', ' FL,', ' FL '], 'GA': ['Georgia', ' GA,', ' GA '],
+    'HI': ['Hawaii', ' HI,', ' HI '], 'ID': ['Idaho', ' ID,', ' ID '],
+    'IL': ['Illinois', ' IL,', ' IL '], 'IN': ['Indiana', ' IN,', ' IN '],
+    'IA': ['Iowa', ' IA,', ' IA '], 'KS': ['Kansas', ' KS,', ' KS '],
+    'KY': ['Kentucky', ' KY,', ' KY '], 'LA': ['Louisiana', ' LA,', ' LA '],
+    'ME': ['Maine', ' ME,', ' ME '], 'MD': ['Maryland', ' MD,', ' MD '],
+    'MA': ['Massachusetts', ' MA,', ' MA '], 'MI': ['Michigan', ' MI,', ' MI '],
+    'MN': ['Minnesota', ' MN,', ' MN '], 'MS': ['Mississippi', ' MS,', ' MS '],
+    'MO': ['Missouri', ' MO,', ' MO '], 'MT': ['Montana', ' MT,', ' MT '],
+    'NE': ['Nebraska', ' NE,', ' NE '], 'NV': ['Nevada', ' NV,', ' NV '],
+    'NH': ['New Hampshire', ' NH,', ' NH '], 'NJ': ['New Jersey', ' NJ,', ' NJ '],
+    'NM': ['New Mexico', ' NM,', ' NM '], 'NY': ['New York', ' NY,', ' NY '],
+    'NC': ['North Carolina', ' NC,', ' NC '], 'ND': ['North Dakota', ' ND,', ' ND '],
+    'OH': ['Ohio', ' OH,', ' OH '], 'OK': ['Oklahoma', ' OK,', ' OK '],
+    'OR': ['Oregon', ' OR,', ' OR '], 'PA': ['Pennsylvania', ' PA,', ' PA '],
+    'RI': ['Rhode Island', ' RI,', ' RI '], 'SC': ['South Carolina', ' SC,', ' SC '],
+    'SD': ['South Dakota', ' SD,', ' SD '], 'TN': ['Tennessee', ' TN,', ' TN '],
+    'TX': ['Texas', ' TX,', ' TX '], 'UT': ['Utah', ' UT,', ' UT '],
+    'VT': ['Vermont', ' VT,', ' VT '], 'VA': ['Virginia', ' VA,', ' VA '],
+    'WA': ['Washington', ' WA,', ' WA '], 'WV': ['West Virginia', ' WV,', ' WV '],
+    'WI': ['Wisconsin', ' WI,', ' WI '], 'WY': ['Wyoming', ' WY,', ' WY '],
+    'DC': ['District of Columbia', ' DC,', ' DC '],
+    'PR': ['Puerto Rico', ' PR,', ' PR '],
+}
+
 SUPABASE_URL = os.getenv('SUPABASE_URL')
 SUPABASE_KEY = os.getenv('SUPABASE_KEY')
 
@@ -40,21 +78,19 @@ def extract_county(param_name):
 
 def extract_state(param_name, description=None):
     text = ' '.join(filter(None, [str(param_name or ''), str(description or '')]))
-    state_patterns = {
-        'CA': ['California', ' CA ', ', CA'],
-        'AL': ['Alabama', ' AL '], 'AK': ['Alaska', ' AK '],
-        'AZ': ['Arizona', ' AZ '], 'AR': ['Arkansas', ' AR '],
-        'CO': ['Colorado', ' CO '], 'CT': ['Connecticut', ' CT '],
-        'FL': ['Florida', ' FL '], 'GA': ['Georgia', ' GA '],
-        'TX': ['Texas', ' TX '], 'NY': ['New York', ' NY '],
-        'NC': ['North Carolina', ' NC '], 'SC': ['South Carolina', ' SC '],
-        'VA': ['Virginia', ' VA '], 'WA': ['Washington', ' WA '],
-        'OR': ['Oregon', ' OR '], 'PA': ['Pennsylvania', ' PA '],
-        'OH': ['Ohio', ' OH '], 'MI': ['Michigan', ' MI '],
-    }
-    for code, patterns in state_patterns.items():
+    for code, patterns in STATE_PATTERNS.items():
         if any(p in text for p in patterns):
             return code
+    return None
+
+
+def state_from_county_lookup(county_name):
+    """If a county belongs to exactly one state, return that state abbreviation."""
+    if not county_name or not COUNTY_TO_STATE_FIPS:
+        return None
+    fips_list = COUNTY_TO_STATE_FIPS.get(county_name, [])
+    if len(fips_list) == 1:
+        return FIPS_TO_ABBR.get(fips_list[0])
     return None
 
 
@@ -88,7 +124,9 @@ def export_to_csv(data, output_file='county_permits_for_qgis.csv'):
         description = record.get('description')
 
         county = record.get('county') or extract_county(param_name)
-        state = record.get('state') or extract_state(param_name, description)
+        state = (record.get('state')
+                 or extract_state(param_name, description)
+                 or state_from_county_lookup(county))
         scope = get_scope(param_name, description)
         state_fips = STATE_ABBR_TO_FIPS.get(state, '') if state else ''
 

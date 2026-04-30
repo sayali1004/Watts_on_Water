@@ -1,25 +1,21 @@
 """
-SMART Export for QGIS - Distributes state/federal data to all counties
-- County-specific data → only that county
-- State-level data → ALL counties in that state  
-- Federal data → ALL counties in ALL states
+Pre-compute propagated QGIS exports — fast, no live SQL joins in QGIS.
+
+Outputs:
+  choropleth.csv    — one row per county, with counts (for choropleth map)
+  detail_propagated.csv — one row per county-item (for click-to-explore)
 """
 
 import os
-import re
 import pandas as pd
 import geopandas as gpd
 from dotenv import load_dotenv
 from supabase import create_client
-from collections import defaultdict
 
 load_dotenv()
 
-# Import county lookup
-try:
-    from county_state_lookup import COUNTY_TO_STATE_FIPS
-except ImportError:
-    COUNTY_TO_STATE_FIPS = {}
+SUPABASE_URL = os.getenv('SUPABASE_URL')
+SUPABASE_KEY = os.getenv('SUPABASE_KEY')
 
 STATE_FIPS_TO_ABBR = {
     '01': 'AL', '02': 'AK', '04': 'AZ', '05': 'AR', '06': 'CA',
@@ -35,335 +31,117 @@ STATE_FIPS_TO_ABBR = {
     '56': 'WY', '72': 'PR'
 }
 
-STATE_ABBR_TO_FIPS = {v: k for k, v in STATE_FIPS_TO_ABBR.items()}
+ITEM_COLS = [
+    'CATEGORY', 'OWNER_CLASS', 'ITEM_TYPE', 'DATASET_NAME',
+    'SOURCE_ACCREDITATION', 'URL', 'DATA_AGE', 'DESCRIPTION',
+    'APPLICABLE_SYSTEM_TYPES', 'MIN_SYSTEM_SIZE_MW', 'MAX_SYSTEM_SIZE_MW',
+    'COST', 'STATUS', 'SCOPE', 'STATE_ABBR'
+]
 
-# Credentials from environment variables
-# Credentials
 
-SUPABASE_URL = os.getenv('SUPABASE_URL')
-SUPABASE_KEY = os.getenv('SUPABASE_KEY')
+def fetch_csv():
+    df = pd.read_csv('county_permits_for_qgis.csv', dtype=str)
+    df.columns = [c.upper() for c in df.columns]
+    return df
 
-def download_shapefile_if_missing():
-    """Download US county shapefile from Census if not present"""
-    shapefile_path = 'tl_2025_us_county.shp'
-    
-    # Check if shapefile already exists
-    if os.path.exists(shapefile_path):
-        print(f"✅ Using existing shapefile: {shapefile_path}")
-        return shapefile_path
-    
-    # Download if missing
-    print("📥 Shapefile not found. Downloading from US Census...")
-    import zipfile
-    import urllib.request
-    
-    url = "https://www2.census.gov/geo/tiger/TIGER2025/COUNTY/tl_2025_us_county.zip"
-    zip_path = "tl_2025_us_county.zip"
-    
-    try:
-        # Download
-        print(f"   Downloading from {url}")
-        urllib.request.urlretrieve(url, zip_path)
-        
-        # Extract
-        print(f"   Extracting...")
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall('.')
-        
-        # Clean up zip
-        os.remove(zip_path)
-        
-        print(f"✅ Shapefile downloaded successfully")
-        return shapefile_path
-        
-    except Exception as e:
-        print(f"❌ Error downloading shapefile: {e}")
-        raise
 
-def find_shapefile():
-    """Find or download the shapefile"""
-    return download_shapefile_if_missing()
+def load_counties(shapefile='tl_2025_us_county.shp'):
+    gdf = gpd.read_file(shapefile)[['NAME', 'STATEFP', 'GEOID']]
+    return gdf
 
-def load_all_counties_from_shapefile(shapefile_path):
-    """Load all US counties from shapefile"""
-    print(f"Loading counties from shapefile: {shapefile_path}")
-    gdf = gpd.read_file(shapefile_path)
-    
-    counties = []
-    for idx, row in gdf.iterrows():
-        counties.append({
-            'name': row['NAME'],
-            'state_fips': row['STATEFP'],
-            'state_abbr': STATE_FIPS_TO_ABBR.get(row['STATEFP'], row['STATEFP'])
-        })
-    
-    print(f"✅ Loaded {len(counties)} counties from {len(gdf['STATEFP'].unique())} states")
-    return counties
 
-def extract_county_and_state(parameter_name, description=None):
-    """Extract county and state, return scope (county/state/federal)"""
-    if not parameter_name:
-        return None, None, None, 'unknown'
-    
-    text = str(parameter_name)
-    if description:
-        text += " " + str(description)
-    
-    # Check for federal indicators
-    federal_keywords = ['US-Federal', 'Federal', 'United States', 'National', 'IRS', 'Department of Energy']
-    if any(kw in text for kw in federal_keywords):
-        return None, None, None, 'federal'
-    
-    # Extract county name
-    county_match = re.search(r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+County', text)
-    county_name = county_match.group(1) if county_match else None
-    
-    # Extract state
-    state_abbr = None
-    state_patterns = {
-        'CA': ['California', ' CA ', ', CA'],
-        'AL': ['Alabama', ' AL '], 'AK': ['Alaska', ' AK '],
-        'AZ': ['Arizona', ' AZ '], 'AR': ['Arkansas', ' AR '],
-        'CO': ['Colorado', ' CO '], 'CT': ['Connecticut', ' CT '],
-        'FL': ['Florida', ' FL '], 'GA': ['Georgia', ' GA '],
-        'TX': ['Texas', ' TX '], 'NY': ['New York', ' NY '],
-        'NC': ['North Carolina', ' NC '], 'SC': ['South Carolina', ' SC '],
-        'VA': ['Virginia', ' VA '], 'WA': ['Washington', ' WA '],
-        'OR': ['Oregon', ' OR '], 'PA': ['Pennsylvania', ' PA '],
-        'OH': ['Ohio', ' OH '], 'MI': ['Michigan', ' MI '],
-    }
-    
-    for state, patterns in state_patterns.items():
-        if any(p in text for p in patterns):
-            state_abbr = state
-            break
-    
-    # Determine scope
-    if county_name and state_abbr:
-        return county_name, state_abbr, STATE_ABBR_TO_FIPS.get(state_abbr), 'county'
-    elif state_abbr:
-        return None, state_abbr, STATE_ABBR_TO_FIPS.get(state_abbr), 'state'
-    else:
-        return None, None, None, 'unknown'
+def propagate(items_df, counties_df):
+    """Return detail rows: one row per county × applicable item."""
+    county_items = items_df[items_df['SCOPE'] == 'county'].copy()
+    state_items  = items_df[items_df['SCOPE'] == 'state'].copy()
+    federal_items = items_df[items_df['SCOPE'] == 'federal'].copy()
+    unknown_items = items_df[items_df['SCOPE'] == 'unknown'].copy()
 
-def fetch_all_data():
-    """Fetch all records from Supabase"""
-    if not SUPABASE_URL or not SUPABASE_KEY:
-        raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set")
-    
-    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-    
-    print("Fetching data from Supabase...")
-    response = supabase.table('permits_data').select('*').execute()
-    
-    print(f"Fetched {len(response.data)} records\n")
-    return response.data
+    detail_rows = []
 
-def categorize_data(data):
-    """Categorize data by scope: county, state, or federal"""
-    county_data = []
-    state_data = defaultdict(list)
-    federal_data = []
-    unknown_data = []
-    
-    for record in data:
-        county, state, state_fips, scope = extract_county_and_state(
-            record.get('parameter_name'),
-            record.get('description')
-        )
-        
-        record_info = {
-            'parameter_name': record.get('parameter_name'),
-            'url': record.get('url'),
-            'data_type': record.get('data_type'),
-            'description': record.get('description'),
-            'county': county,
-            'state': state,
-            'state_fips': state_fips
-        }
-        
-        if scope == 'county':
-            county_data.append(record_info)
-        elif scope == 'state':
-            state_data[state_fips].append(record_info)
-        elif scope == 'federal':
-            federal_data.append(record_info)
-        else:
-            unknown_data.append(record_info)
-    
-    print(f"📊 Data categorization:")
-    print(f"   County-specific: {len(county_data)}")
-    print(f"   State-level: {len([item for items in state_data.values() for item in items])} across {len(state_data)} states")
-    print(f"   Federal: {len(federal_data)}")
-    print(f"   Unknown: {len(unknown_data)}")
-    
-    return county_data, state_data, federal_data, unknown_data
+    # County-specific: exact NAME + STATEFP match
+    merged_county = counties_df.merge(
+        county_items[ITEM_COLS + ['NAME', 'STATEFP']],
+        on=['NAME', 'STATEFP'], how='inner'
+    )
+    detail_rows.append(merged_county[['NAME', 'STATEFP', 'GEOID'] + ITEM_COLS])
 
-def aggregate_for_counties(all_counties, county_data, state_data, federal_data):
-    """Create records for each county with applicable data"""
-    
-    result = {}
-    
-    for county_info in all_counties:
-        county_name = county_info['name']
-        state_fips = county_info['state_fips']
-        state_abbr = county_info['state_abbr']
-        
-        key = f"{county_name}_{state_abbr}"
-        
-        result[key] = {
-            'county': county_name,
-            'state': state_abbr,
-            'state_fips': state_fips,
-            'permits': [],
-            'incentives': [],
-            'regulations': [],
-            'permit_urls': [],
-            'incentive_urls': [],
-            'regulation_urls': [],
-            'permit_count': 0,
-            'incentive_count': 0,
-            'regulation_count': 0
-        }
-        
-        # Add county-specific data
-        for record in county_data:
-            if record['county'] == county_name and record['state_fips'] == state_fips:
-                data_type = record['data_type']
-                if data_type == 'permit':
-                    result[key]['permits'].append(record['parameter_name'])
-                    result[key]['permit_urls'].append(record.get('url', ''))
-                    result[key]['permit_count'] += 1
-                elif data_type == 'incentive':
-                    result[key]['incentives'].append(record['parameter_name'])
-                    result[key]['incentive_urls'].append(record.get('url', ''))
-                    result[key]['incentive_count'] += 1
-                elif data_type == 'regulation':
-                    result[key]['regulations'].append(record['parameter_name'])
-                    result[key]['regulation_urls'].append(record.get('url', ''))
-                    result[key]['regulation_count'] += 1
-        
-        # Add state-level data
-        for record in state_data.get(state_fips, []):
-            data_type = record['data_type']
-            name = record['parameter_name'] + " (State-level)"
-            if data_type == 'permit':
-                result[key]['permits'].append(name)
-                result[key]['permit_urls'].append(record.get('url', ''))
-                result[key]['permit_count'] += 1
-            elif data_type == 'incentive':
-                result[key]['incentives'].append(name)
-                result[key]['incentive_urls'].append(record.get('url', ''))
-                result[key]['incentive_count'] += 1
-            elif data_type == 'regulation':
-                result[key]['regulations'].append(name)
-                result[key]['regulation_urls'].append(record.get('url', ''))
-                result[key]['regulation_count'] += 1
-        
-        # Add federal data
-        for record in federal_data:
-            data_type = record['data_type']
-            name = record['parameter_name'] + " (Federal)"
-            if data_type == 'permit':
-                result[key]['permits'].append(name)
-                result[key]['permit_urls'].append(record.get('url', ''))
-                result[key]['permit_count'] += 1
-            elif data_type == 'incentive':
-                result[key]['incentives'].append(name)
-                result[key]['incentive_urls'].append(record.get('url', ''))
-                result[key]['incentive_count'] += 1
-            elif data_type == 'regulation':
-                result[key]['regulations'].append(name)
-                result[key]['regulation_urls'].append(record.get('url', ''))
-                result[key]['regulation_count'] += 1
-    
-    return result
+    # State-level: match on STATEFP only
+    state_items_fips = state_items.copy()
+    state_items_fips['STATEFP'] = state_items_fips['STATEFP'].map(
+        lambda x: x if len(str(x)) == 2 else None
+    )
+    # Use STATE_ABBR to get STATEFP
+    abbr_to_fips = {v: k for k, v in STATE_FIPS_TO_ABBR.items()}
+    state_items_fips['STATEFP'] = state_items_fips['STATE_ABBR'].map(abbr_to_fips)
+    state_items_fips = state_items_fips.dropna(subset=['STATEFP'])
+    merged_state = counties_df[['NAME', 'STATEFP', 'GEOID']].merge(
+        state_items_fips[ITEM_COLS + ['STATEFP']],
+        on='STATEFP', how='inner'
+    )
+    detail_rows.append(merged_state[['NAME', 'STATEFP', 'GEOID'] + ITEM_COLS])
 
-def export_to_csv(county_data, output_file='county_permits_for_qgis.csv'):
-    """Export to CSV"""
-    
-    rows = []
-    for key, data in county_data.items():
-        # Only include counties with data
-        if data['permit_count'] + data['incentive_count'] + data['regulation_count'] == 0:
-            continue
-        
-        permit_list = '; '.join(data['permits'][:5])
-        if data['permit_count'] > 5:
-            permit_list += f" (+{data['permit_count'] - 5} more)"
-        
-        incentive_list = '; '.join(data['incentives'][:5])
-        if data['incentive_count'] > 5:
-            incentive_list += f" (+{data['incentive_count'] - 5} more)"
-        
-        regulation_list = '; '.join(data['regulations'][:5])
-        if data['regulation_count'] > 5:
-            regulation_list += f" (+{data['regulation_count'] - 5} more)"
-        
-        # Create URL lists (first 3 URLs)
-        permit_urls = '; '.join([url for url in data['permit_urls'][:3] if url])
-        incentive_urls = '; '.join([url for url in data['incentive_urls'][:3] if url])
-        regulation_urls = '; '.join([url for url in data['regulation_urls'][:3] if url])
-        
-        rows.append({
-            'NAME': data['county'],
-            'STATEFP': data['state_fips'],
-            'STATE_ABBR': data['state'],
-            'PERMIT_CNT': data['permit_count'],
-            'INCENTV_CNT': data['incentive_count'],
-            'REGULN_CNT': data['regulation_count'],
-            'TOTAL_CNT': data['permit_count'] + data['incentive_count'] + data['regulation_count'],
-            'PERMIT_LST': permit_list or 'None',
-            'INCENTV_LST': incentive_list or 'None',
-            'REGULN_LST': regulation_list or 'None',
-            'PERMIT_URLS': permit_urls or 'None',
-            'INCENTV_URLS': incentive_urls or 'None',
-            'REGULN_URLS': regulation_urls or 'None'
-        })
-    
-    df = pd.DataFrame(rows)
-    df = df.sort_values(['STATEFP', 'NAME'])
-    df.to_csv(output_file, index=False)
-    
-    print(f"\n✅ Exported {len(df)} counties to {output_file}")
-    print(f"\n📊 Sample (first 10):")
-    print(df[['NAME', 'STATE_ABBR', 'PERMIT_CNT', 'INCENTV_CNT', 'REGULN_CNT', 'TOTAL_CNT']].head(10))
-    print(f"\n📈 Totals:")
-    print(f"   Counties with data: {len(df)}")
-    print(f"   Total permit entries: {df['PERMIT_CNT'].sum()}")
-    print(f"   Total incentive entries: {df['INCENTV_CNT'].sum()}")
-    print(f"   Total regulation entries: {df['REGULN_CNT'].sum()}")
-    
-    return output_file
+    # Federal: applies to every county
+    if not federal_items.empty:
+        federal_items['_key'] = 1
+        all_counties = counties_df[['NAME', 'STATEFP', 'GEOID']].copy()
+        all_counties['_key'] = 1
+        merged_federal = all_counties.merge(federal_items[ITEM_COLS + ['_key']], on='_key').drop(columns='_key')
+        detail_rows.append(merged_federal[['NAME', 'STATEFP', 'GEOID'] + ITEM_COLS])
+
+    # Unknown scope: include as-is (no county assignment)
+    if not unknown_items.empty:
+        unk = unknown_items[ITEM_COLS].copy()
+        unk['NAME'] = ''
+        unk['STATEFP'] = ''
+        unk['GEOID'] = ''
+        detail_rows.append(unk[['NAME', 'STATEFP', 'GEOID'] + ITEM_COLS])
+
+    return pd.concat(detail_rows, ignore_index=True)
+
+
+def build_choropleth(detail_df, counties_df):
+    """Aggregate counts per county from the detail rows."""
+    county_detail = detail_df[detail_df['NAME'] != '']
+    counts = county_detail.groupby(['NAME', 'STATEFP', 'GEOID']).agg(
+        total_count=('URL', 'count'),
+        permit_count=('CATEGORY', lambda x: (x == 'permit').sum()),
+        incentive_count=('CATEGORY', lambda x: (x == 'incentive').sum()),
+        regulation_count=('CATEGORY', lambda x: (x == 'regulation').sum()),
+    ).reset_index()
+
+    # Left join to include counties with 0 items
+    choropleth = counties_df[['NAME', 'STATEFP', 'GEOID']].merge(
+        counts, on=['NAME', 'STATEFP', 'GEOID'], how='left'
+    ).fillna(0)
+    for col in ['total_count', 'permit_count', 'incentive_count', 'regulation_count']:
+        choropleth[col] = choropleth[col].astype(int)
+
+    return choropleth.sort_values(['STATEFP', 'NAME'])
+
 
 def main():
-    print("="*70)
-    print("SMART QGIS Export - State & Federal Data Distribution")
-    print("="*70 + "\n")
-    
-    # Find and load shapefile
-    shapefile_path = find_shapefile()
-    all_counties = load_all_counties_from_shapefile(shapefile_path)
-    
-    # Fetch data
-    data = fetch_all_data()
-    
-    # Categorize
-    county_data, state_data, federal_data, unknown = categorize_data(data)
-    
-    # Aggregate
-    print(f"\n🔄 Distributing data to all counties...")
-    aggregated = aggregate_for_counties(all_counties, county_data, state_data, federal_data)
-    
-    # Export
-    csv_file = export_to_csv(aggregated)
-    
-    if csv_file:
-        print("\n" + "="*70)
-        print("✅ READY FOR QGIS!")
-        print("="*70)
-        print(f"CSV file created: {csv_file}")
-        print("="*70)
+    import sys
+    shapefile = sys.argv[1] if len(sys.argv) > 1 else 'tl_2025_us_county.shp'
+
+    print("Loading county permits CSV...")
+    items_df = fetch_csv()
+    print(f"  {len(items_df)} items")
+
+    print("Loading shapefile counties...")
+    counties_df = load_counties(shapefile)
+    print(f"  {len(counties_df)} counties")
+
+    print("Propagating federal/state/county items...")
+    detail_df = propagate(items_df, counties_df)
+    detail_df.to_csv('detail_propagated.csv', index=False)
+    print(f"  detail_propagated.csv → {len(detail_df)} rows")
+
+    print("\n✅ Done. Load detail_propagated.csv in QGIS:")
+    print("   1. Add shapefile + detail_propagated.csv (no geometry)")
+    print("   2. Project → Properties → Relations → link on NAME + STATEFP")
+    print("   3. Click any county to see all applicable items")
+
 
 if __name__ == '__main__':
     main()

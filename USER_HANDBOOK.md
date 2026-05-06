@@ -1,654 +1,500 @@
 # SCEIN Fellowship Data Pipeline
 ## Complete User Handbook
 
-**Version 1.0 | April 2026**
+**Version 2.0 | May 2026**
 
 ---
 
-## 📖 Table of Contents
+## Table of Contents
 
-1. [What This System Does](#what-this-system-does)
-2. [How It Works (Simple Explanation)](#how-it-works)
-3. [What You'll Need](#what-youll-need)
-4. [Initial Setup (One-Time)](#initial-setup)
-5. [Daily Workflow](#daily-workflow)
-6. [Creating Maps in QGIS](#creating-maps-in-qgis)
-7. [Troubleshooting](#troubleshooting)
-8. [Technical Details (For IT)](#technical-details)
-9. [FAQ](#faq)
-
----
-
-## What This System Does
-
-This automated system:
-- **Collects** permit, incentive, and regulation data from 640+ websites
-- **Organizes** data by county, state, and federal level
-- **Distributes** state and federal data to all relevant counties
-- **Creates** ready-to-use map files for QGIS visualization
-- **Updates** automatically every day
-
-**End Result:** You can create maps showing permits, incentives, and regulations for all 3,235 US counties with just a few clicks!
+1. [Tech Stack](#1-tech-stack)
+2. [Pipeline Architecture](#2-pipeline-architecture)
+3. [Prerequisites & Installation](#3-prerequisites--installation)
+4. [Repository Setup](#4-repository-setup)
+5. [Supabase Setup](#5-supabase-setup)
+6. [GitHub Actions Setup](#6-github-actions-setup)
+7. [Running the Scraper](#7-running-the-scraper)
+8. [Running the Exports](#8-running-the-exports)
+9. [QGIS Setup](#9-qgis-setup)
+10. [Updating Data Monthly](#10-updating-data-monthly)
+11. [Troubleshooting](#11-troubleshooting)
 
 ---
 
-## How It Works
+## 1. Tech Stack
 
-Think of it like a pipeline:
+| Component | Tool | Purpose |
+|---|---|---|
+| Data source | Excel (.xlsx) | Contains 640+ URLs for permits, incentives, regulations |
+| Scraper | Python 3.11 | Reads Excel, scrapes each URL, extracts metadata |
+| Database | Supabase (PostgreSQL) | Stores all scraped records |
+| Automation | GitHub Actions | Runs scraper monthly, triggered manually |
+| Export | Python (pandas, geopandas) | Pulls from Supabase, generates QGIS-ready CSVs |
+| Visualization | QGIS 3.28+ | Choropleth map + click-to-explore detail |
 
+**Python packages required:**
 ```
-Google Sheets (your data source)
-    ↓ (every 30 minutes)
-Automated Scraper (collects data from websites)
-    ↓
-Database (stores everything)
-    ↓ (every day at 9 AM)
-CSV File (ready for maps)
-    ↓
-Your Computer (makes maps in QGIS)
+pandas
+openpyxl
+requests
+beautifulsoup4
+supabase
+lxml
+python-dateutil
+python-dotenv
+geopandas
 ```
 
-**The good news:** Steps 1-4 happen automatically! You only need to do step 5.
-
 ---
 
-## What You'll Need
-
-### Software (Free)
-- **QGIS Desktop** - Download from https://qgis.org/download/
-  - Version 3.28 or newer
-  - Works on Mac, Windows, Linux
-
-### Files (Already on this computer)
-Location: `/Users/sayalishelke/Desktop/scein-pipeline/`
-
-You'll use:
-- `county_permits_for_qgis.csv` - The data file (auto-updated daily)
-- `tl_2025_us_county.shp` - US county map (+ 3 other files: .shx, .dbf, .prj)
-- `update_qgis_data.sh` - Script to get fresh data
-- `SCEIN_Map.qgz` - Your saved QGIS project (once you create it)
-
-### Access You'll Need
-- This computer (where files are located)
-- Internet connection (to download updates)
-
----
-
-## Initial Setup (One-Time)
-
-### Step 1: Install QGIS
-
-1. Go to https://qgis.org/download/
-2. Download the installer for your operating system
-3. Run the installer
-4. Follow the on-screen instructions
-5. Open QGIS to verify it works
-
-**Time needed:** 10-15 minutes
-
----
-
-### Step 2: Load the Map for the First Time
-
-#### A. Open QGIS
-- Find QGIS in your Applications folder
-- Double-click to open
-
-#### B. Load the US County Shapefile
-
-1. Click **Layer** menu → **Add Layer** → **Add Vector Layer**
-2. Click the **"..."** button next to "Vector Dataset(s)"
-3. Navigate to: `/Users/sayalishelke/Desktop/scein-pipeline/`
-4. Look for files starting with `tl_2025_us_county`
-5. Select: `tl_2025_us_county.shp`
-6. Click **"Add"**
-7. Click **"Close"**
-
-**You should now see a map of all US counties!**
-
-#### C. Load the Data File (CSV)
-
-1. Click **Layer** menu → **Add Layer** → **Add Delimited Text Layer**
-2. Click the **"..."** button next to "File name"
-3. Navigate to: `/Users/sayalishelke/Desktop/scein-pipeline/`
-4. Select: `county_permits_for_qgis.csv`
-5. **IMPORTANT:** Scroll down to "Geometry Definition"
-6. Select **"No geometry (attribute only table)"**
-7. ✅ Check the box: **"Detect field types"**
-8. Click **"Add"**
-9. Click **"Close"**
-
-**You should now see both layers in the left panel:**
-- `tl_2025_us_county` (the map)
-- `county_permits_for_qgis` (the data - looks like a table icon)
-
-#### D. Join the Map and Data Together
-
-This connects the county shapes with the permit/incentive data.
-
-1. **Right-click** on `tl_2025_us_county` in the left panel
-2. Click **"Properties"**
-3. In the left sidebar, click **"Joins"**
-4. Click the green **"+"** button at the bottom
-5. Fill in these settings:
-   - **Join layer:** `county_permits_for_qgis`
-   - **Join field:** `NAME`
-   - **Target field:** `NAME`
-   - ✅ Check: **"Cache join layer in memory"**
-   - ❌ Uncheck: **"Custom field name prefix"** (or leave it blank)
-6. Click **"OK"**
-7. Click **"Apply"** (don't close yet!)
-
-#### E. Verify the Join Worked
-
-1. Still in Properties, click **"Fields"** tab (in left sidebar)
-2. Scroll down in the list
-3. You should see new fields like:
-   - `PERMIT_CNT`
-   - `INCENTV_CNT`
-   - `REGULN_CNT`
-   - `TOTAL_CNT`
-
-**If you see these, the join worked!** ✅
-
-8. Click **"OK"** to close Properties
-
-#### F. Color the Map
-
-1. **Right-click** `tl_2025_us_county` → **Properties**
-2. Click **"Symbology"** in left sidebar
-3. At the top, change the dropdown from **"Single Symbol"** to **"Graduated"**
-4. **Value:** Select `TOTAL_CNT` (or `PERMIT_CNT`, `INCENTV_CNT`, `REGULN_CNT`)
-5. **Color ramp:** Click the dropdown and choose a color scheme
-   - **Blues** - Light to dark blue
-   - **Reds** - Light to dark red
-   - **RdYlGn** - Red-Yellow-Green
-6. **Mode:** Select **"Natural Breaks (Jenks)"**
-7. Click the **"Classify"** button
-8. Click **"OK"**
-
-**Your map is now colored by data!** 🎨
-
-Counties with more permits/incentives will be darker.
-
-#### G. Save Your Project
-
-1. Click **Project** menu → **Save As**
-2. Navigate to: `/Users/sayalishelke/Desktop/scein-pipeline/`
-3. File name: `SCEIN_Map.qgz`
-4. Click **"Save"**
-
-**Setup complete!** 🎉
-
----
-
-## Daily Workflow
-
-### Getting Fresh Data (5 seconds)
-
-The data updates automatically every day at 9 AM. To get the latest:
-
-1. **Open Terminal** (or Command Prompt on Windows)
-2. Type these commands:
-   ```bash
-   cd /Users/sayalishelke/Desktop/scein-pipeline
-   ./update_qgis_data.sh
-   ```
-3. Press **Enter**
-4. You'll see: "✅ QGIS data updated!"
-
-**That's it!** The latest data is now on your computer.
-
----
-
-### Opening Your Map
-
-1. **Open QGIS**
-2. Click **Project** menu → **Open Recent**
-3. Select **"SCEIN_Map.qgz"**
-
-**OR**
-
-1. Open QGIS
-2. Click **Project** → **Open**
-3. Navigate to: `/Users/sayalishelke/Desktop/scein-pipeline/`
-4. Select: `SCEIN_Map.qgz`
-5. Click **"Open"**
-
----
-
-### Refreshing the Map with New Data
-
-After running `./update_qgis_data.sh`:
-
-1. In QGIS, look at the **Layers** panel (left side)
-2. **Right-click** on `county_permits_for_qgis`
-3. Click **"Reload"**
-
-**Your map now shows the latest data!**
-
----
-
-## Creating Maps in QGIS
-
-### Viewing Different Data Types
-
-You can create separate maps for:
-- **Permits only**
-- **Incentives only**
-- **Regulations only**
-- **Total (all combined)**
-
-**How to switch:**
-
-1. **Right-click** `tl_2025_us_county` → **Properties**
-2. **Symbology** tab
-3. **Value:** Change the dropdown to:
-   - `PERMIT_CNT` - Shows permits
-   - `INCENTV_CNT` - Shows incentives
-   - `REGULN_CNT` - Shows regulations
-   - `TOTAL_CNT` - Shows everything
-4. Click **"Classify"**
-5. Click **"OK"**
-
----
-
-### Changing Colors
-
-1. **Right-click** `tl_2025_us_county` → **Properties**
-2. **Symbology** tab
-3. Click the **Color ramp** dropdown
-4. Choose a different color scheme
-5. Click **"Classify"**
-6. Click **"OK"**
-
----
-
-### Adding County Labels
-
-1. **Right-click** `tl_2025_us_county` → **Properties**
-2. **Labels** tab (in left sidebar)
-3. Change dropdown from **"No Labels"** to **"Single Labels"**
-4. **Value:** Select `NAME`
-5. Adjust **Font size:** 8-10pt works well
-6. Click **"OK"**
-
-**County names now appear on the map!**
-
----
-
-### Adding Hover Popups (Map Tips)
-
-Show information when you hover over a county:
-
-1. **Right-click** `tl_2025_us_county` → **Properties**
-2. **Display** tab (or "Map Tips" in some versions)
-3. In the **HTML Map Tip** box, paste this:
-
-```html
-<h3>[% "NAME" %] County, [% "STATE_ABBR" %]</h3>
-<b>Total Items:</b> [% "TOTAL_CNT" %]<br>
-<b>Permits:</b> [% "PERMIT_CNT" %]<br>
-<b>Incentives:</b> [% "INCENTV_CNT" %]<br>
-<b>Regulations:</b> [% "REGULN_CNT" %]<br>
-<hr>
-<b>Sample Permits:</b><br>
-[% "PERMIT_LST" %]<br>
-<b>Sample Incentives:</b><br>
-[% "INCENTV_LST" %]<br>
-<b>Sample Regulations:</b><br>
-[% "REGULN_LST" %]
+## 2. Pipeline Architecture
+
+```
+Excel File (.xlsx)
+    │
+    │  read_excel_data() — reads 10 columns per row:
+    │  Dataset Name, Description, Source Accreditation,
+    │  Data Age, Owner Class, Item Type, Applicable System
+    │  Types, Min/Max System Size, Cost, URL
+    ▼
+scraper.py
+    │  For each URL → HTTP request → scrape webpage
+    │  Extracts: title, full text, dates, cost, timeframe, status
+    │  Upserts to Supabase on conflict (url, data_type, excel_sheet, excel_row)
+    ▼
+Supabase (permits_data table)
+    │  640+ records
+    │  One row per item (permit / incentive / regulation)
+    │
+    ├──▶ export_qgis.py
+    │         Pulls all records from Supabase
+    │         Fills missing state info using county lookup
+    │         Outputs: county_permits_for_qgis.csv
+    │         (one row per item, flat — for analysis)
+    │
+    └──▶ export_with_propagation.py
+              Pulls county_permits_for_qgis.csv
+              Reads shapefile to get all 3,235 US counties
+              Distributes items by scope:
+                - County-specific → only that county
+                - State-level → all counties in that state
+                - Federal → all 3,235 US counties
+              Outputs: detail_propagated.csv
+              (~210,000 rows — one per county-item pair)
+                    │
+                    ▼
+                  QGIS
+                    ├── Choropleth layer (counts per county)
+                    └── 3 relation layers (click to explore)
+                          Permits / Regulations / Incentives
 ```
 
-4. Click **"OK"**
-5. **Enable Map Tips:** Click **View** menu → **Show Map Tips** (or press Ctrl+I / Cmd+I)
+---
 
-**Now hover over any county to see its data!**
+## 3. Prerequisites & Installation
+
+### 3.1 Python
+
+Install Python 3.11 or newer:
+- Download from https://python.org/downloads
+- Verify: `python --version`
+
+### 3.2 Git
+
+- Mac: `xcode-select --install`
+- Windows: download from https://git-scm.com
+
+### 3.3 QGIS
+
+- Download QGIS 3.28 or newer from https://qgis.org/download/
+- Install and open to verify it works
+
+### 3.4 US County Shapefile
+
+Download the 2025 US county shapefile from the US Census:
+- Go to: https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html
+- Download: `tl_2025_us_county.zip`
+- Extract — you need these 4 files together in the same folder:
+  - `tl_2025_us_county.shp`
+  - `tl_2025_us_county.shx`
+  - `tl_2025_us_county.dbf`
+  - `tl_2025_us_county.prj`
 
 ---
 
-### Exporting a Map Image
+## 4. Repository Setup
 
-To share your map:
+### 4.1 Clone the repository
 
-1. Click **Project** menu → **New Print Layout**
-2. Give it a name (e.g., "US Permits Map")
-3. Click **OK**
-4. Click **Add Item** → **Add Map**
-5. Drag a rectangle on the page
-6. Your map appears!
-
-**Add a title:**
-1. **Add Item** → **Add Label**
-2. Draw a box at the top
-3. In the right panel, type your title in **Main Properties**
-
-**Add a legend:**
-1. **Add Item** → **Add Legend**
-2. Draw a box on the side
-3. The legend appears automatically
-
-**Export:**
-1. **Layout** menu → **Export as Image**
-2. Choose location and filename
-3. Click **"Save"**
-
-**You now have a PNG/JPG image to share!**
-
----
-
-## Troubleshooting
-
-### Problem: "update_qgis_data.sh: command not found"
-
-**Solution:**
 ```bash
-cd /Users/sayalishelke/Desktop/scein-pipeline
-chmod +x update_qgis_data.sh
-./update_qgis_data.sh
+git clone https://github.com/sayali1004/Watts_on_Water.git
+cd Watts_on_Water
 ```
 
----
+### 4.2 Install Python dependencies
 
-### Problem: Map is all gray / no colors
-
-**Cause:** The join didn't work or data didn't load.
-
-**Solution:**
-1. Check that `county_permits_for_qgis.csv` exists in the folder
-2. Remove and re-add the CSV layer
-3. Make sure you checked **"Detect field types"** when adding CSV
-4. Re-do the join (see Initial Setup → Step 2D)
-
----
-
-### Problem: Can't see TOTAL_CNT in Symbology dropdown
-
-**Cause:** Fields are loaded as text instead of numbers.
-
-**Solution:**
-1. Remove the CSV layer
-2. Re-add it
-3. **IMPORTANT:** ✅ Check **"Detect field types"** before clicking Add
-4. Re-do the join
-
----
-
-### Problem: Data looks old / numbers haven't changed
-
-**Solution:**
 ```bash
-# Get fresh data
-cd /Users/sayalishelke/Desktop/scein-pipeline
-./update_qgis_data.sh
-
-# Then in QGIS:
-# Right-click county_permits_for_qgis → Reload
+pip install -r requirements_local.txt
 ```
 
----
+### 4.3 Create your .env file
 
-### Problem: QGIS crashes or freezes
-
-**Solution:**
-1. Save your work: **Project → Save**
-2. Restart QGIS
-3. **Project → Open Recent → SCEIN_Map.qgz**
-
-If it keeps crashing:
-- Check you have at least 4GB of RAM available
-- Close other programs
-- Try a simpler color scheme (fewer classes)
-
----
-
-## Technical Details (For IT)
-
-### System Architecture
-
-**Components:**
-- **Data Source:** Google Sheets (640 records)
-- **Scraper:** Python script, runs on GitHub Actions
-- **Database:** Supabase (PostgreSQL)
-- **Export:** Python script, generates CSV
-- **Visualization:** QGIS Desktop
-
-**Automation:**
-- GitHub Actions runs scraper every 30 min (8AM-6PM UTC, weekdays)
-- GitHub Actions runs export daily at 9 AM UTC (weekdays)
-- CSV committed back to repository automatically
-
-**Data Flow:**
-1. Google Sheets → Download (GitHub Actions)
-2. Scraper extracts URLs → Web scraping → Clean data
-3. Save to Supabase (permits_data table)
-4. Export script:
-   - Categorizes: county-specific, state-level, federal
-   - Distributes state data to all counties in state
-   - Distributes federal data to all US counties
-5. Generates CSV with aggregated counts
-6. User pulls CSV → Joins in QGIS → Creates maps
-
-### File Locations
-
-**On This Computer:**
-- Project folder: `/Users/sayalishelke/Desktop/scein-pipeline/`
-- Shapefile: `tl_2025_us_county.shp` (+ .shx, .dbf, .prj)
-- Data CSV: `county_permits_for_qgis.csv` (auto-updated)
-- Update script: `update_qgis_data.sh`
-- QGIS project: `SCEIN_Map.qgz`
-
-**On GitHub:**
-- Repository: https://github.com/sayali1004/Watts_on_Water
-- Workflows: `.github/workflows/`
-- Scripts: `scraper.py`, `export_with_propagation.py`
-
-**Database:**
-- Supabase project (credentials in GitHub Secrets)
-- Table: `permits_data`
-- ~640 records
-
-### Data Schema
-
-**CSV Columns:**
-- `NAME` - County name (join key)
-- `STATEFP` - State FIPS code
-- `STATE_ABBR` - State abbreviation (CA, TX, etc.)
-- `PERMIT_CNT` - Number of permits (integer)
-- `INCENTV_CNT` - Number of incentives (integer)
-- `REGULN_CNT` - Number of regulations (integer)
-- `TOTAL_CNT` - Total count (integer)
-- `PERMIT_LST` - Sample permits (text, first 5)
-- `INCENTV_LST` - Sample incentives (text, first 5)
-- `REGULN_LST` - Sample regulations (text, first 5)
-- `PERMIT_URLS` - Permit URLs (text, first 3, semicolon-separated)
-- `INCENTV_URLS` - Incentive URLs (text, first 3)
-- `REGULN_URLS` - Regulation URLs (text, first 3)
-
-**Shapefile:**
-- Source: US Census TIGER/Line 2025
-- Features: 3,235 counties
-- Key field: `NAME` (county name)
-
-### Scripts
-
-**update_qgis_data.sh:**
 ```bash
-#!/bin/bash
-cd ~/Desktop/scein-pipeline
-git pull origin main
-echo "✅ QGIS data updated!"
+cp .env.example .env
 ```
 
-**export_with_propagation.py:**
-- Fetches data from Supabase
-- Categorizes by scope (county/state/federal)
-- Distributes accordingly
-- Exports to CSV
+Open `.env` and fill in your Supabase credentials:
+```
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=your-service-role-key
+```
 
-### Maintenance
-
-**Weekly:**
-- Check GitHub Actions for failures
-- Verify CSV file size (should be ~2-3 MB)
-
-**Monthly:**
-- Verify data counts match expectations
-- Check for new states/counties in source data
-
-**As Needed:**
-- Update Google Sheets URL if changed
-- Update Supabase credentials if rotated
-- Re-download shapefile if Census updates
+> The service role key is found in your Supabase project: Settings → API → service_role (secret)
 
 ---
 
-## FAQ
+## 5. Supabase Setup
 
-### How often does data update?
+### 5.1 Create a Supabase project
 
-**Automatically:**
-- Scraper runs every 30 minutes (business days, 8AM-6PM)
-- CSV export runs daily at 9 AM
-- CSV is available on this computer after running `./update_qgis_data.sh`
+1. Go to https://supabase.com and sign in
+2. Click **New Project**
+3. Choose a name, database password, and region
+4. Wait for the project to be ready (~2 minutes)
 
-**You control:**
-- When you run the update script
-- When you reload the map in QGIS
+### 5.2 Run the schema
+
+1. In your Supabase project → click **SQL Editor**
+2. Open `supabase_schema_scein.sql` from the repository
+3. Copy the entire file contents
+4. Paste into the SQL Editor
+5. Click **Run**
+
+This creates the `permits_data` table with all required columns and the composite unique constraint `unique_permit_row (url, data_type, excel_sheet, excel_row)`.
+
+### 5.3 Verify
+
+In Supabase → **Table Editor** → you should see `permits_data` listed.
 
 ---
 
-### Can I work offline?
+## 6. GitHub Actions Setup
 
-**Yes!** Once you have the data files, QGIS works completely offline.
+The scraper runs automatically every 1st of the month via GitHub Actions.
 
-**BUT:** To get fresh data, you need internet to run `./update_qgis_data.sh`
+### 6.1 Add Supabase credentials as GitHub Secrets
+
+1. Go to your GitHub repository
+2. Click **Settings → Secrets and variables → Actions**
+3. Click **New repository secret** — add two secrets:
+   - Name: `SUPABASE_URL` → Value: your Supabase project URL
+   - Name: `SUPABASE_KEY` → Value: your service role key
+
+### 6.2 Verify the workflow
+
+- Go to repository → **Actions** tab
+- You should see **Scrape SCEIN Data** listed
+- Click **Run workflow** to trigger it manually
+
+### 6.3 Workflow schedule
+
+The workflow runs automatically on the **1st of every month at 8 AM UTC**.
+To trigger manually: Actions → Scrape SCEIN Data → Run workflow → Run workflow.
 
 ---
 
-### What if I accidentally delete a file?
+## 7. Running the Scraper
 
-**Don't panic!**
+The scraper reads the Excel file, visits each URL, and saves data to Supabase.
 
-**For the CSV:**
+### 7.1 Locally
+
+Make sure your `.env` file has valid Supabase credentials, then:
+
 ```bash
-cd /Users/sayalishelke/Desktop/scein-pipeline
-./update_qgis_data.sh
+cd Watts_on_Water
+python scraper.py
 ```
-This re-downloads it from GitHub.
 
-**For the shapefile:**
-It's backed up in GitHub. Contact IT to restore it.
+### 7.2 What the scraper reads from Excel
 
-**For your QGIS project:**
-You'll need to recreate it following "Initial Setup" above. Only takes 10 minutes!
+| Column | Index | Field |
+|---|---|---|
+| Description | 1 | description |
+| Dataset Name | 5 | parameter_name |
+| Source Accreditation | 7 | source_accreditation |
+| Source URL | 8 | url |
+| Data Age | 9 | data_age |
+| Owner Class | 11 | owner_class |
+| Permit/Incentive/Regulation Type | 19 | item_type |
+| Applicable System Types | 20 | applicable_system_types |
+| Min System Size [MW] | 22 | min_system_size_mw |
+| Max System Size [MW] | 23 | max_system_size_mw |
+| Cost [$] | 24 | cost |
 
----
+### 7.3 What the scraper extracts from each webpage
 
-### Can multiple people use this?
+- Page title
+- Full text content (up to 10,000 characters)
+- Effective date, expiry date, last updated
+- Requirements
+- Cost (if not already in Excel)
+- Processing timeframe (days)
+- Status: active / expired / pending / amended
 
-**Yes!** Each person needs:
-1. QGIS installed on their computer
-2. Access to this project folder (or a copy)
-3. To run `./update_qgis_data.sh` to get data
+### 7.4 Upsert logic
 
-**Everyone sees the same data** because it comes from the same source.
+Records are upserted (insert or update) using the composite unique key:
+`(url, data_type, excel_sheet, excel_row)`
 
----
-
-### How do I share my map with someone?
-
-**Option 1: Export as image**
-- Follow "Exporting a Map Image" above
-- Share the PNG/JPG file
-
-**Option 2: Share QGIS project**
-- Copy the entire `/scein-pipeline/` folder
-- Give to colleague
-- They open `SCEIN_Map.qgz` in QGIS
-
-**Option 3: Print**
-- In Print Layout, click **Layout → Print**
-
----
-
-### What happens if the automation breaks?
-
-**You can still work!**
-
-The last CSV file is saved locally. You can keep using it until IT fixes the automation.
-
-**To check automation status:**
-- Go to: https://github.com/sayali1004/Watts_on_Water/actions
-- Look for green checkmarks (working) or red X's (broken)
+This means running the scraper again on the same data updates existing records rather than creating duplicates.
 
 ---
 
-### Where did this data come from originally?
+## 8. Running the Exports
 
-**Source:** Google Sheets maintained by SCEIN Fellowship team
+Two export scripts generate the files needed for QGIS.
 
-**Contains:** 640 URLs to permits, incentives, and regulations
+### 8.1 Export flat CSV (county_permits_for_qgis.csv)
 
-**Updates:** Manual updates to Google Sheets trigger automatic re-scraping
-
----
-
-### Who do I contact for help?
-
-**For map/visualization questions:**
-- [Your Name/Team]
-
-**For technical/automation issues:**
-- IT Department
-- GitHub repository: https://github.com/sayali1004/Watts_on_Water
-
-**For QGIS help:**
-- QGIS Documentation: https://docs.qgis.org/
-- QGIS Tutorials: https://www.qgistutorials.com/
-
----
-
-## Quick Reference Card
-
-**🔄 Get Fresh Data:**
 ```bash
-cd /Users/sayalishelke/Desktop/scein-pipeline
-./update_qgis_data.sh
+python export_qgis.py
 ```
 
-**🗺️ Open Map:**
-- Open QGIS
-- Project → Open Recent → SCEIN_Map.qgz
+**Output:** `county_permits_for_qgis.csv`
+- One row per item (permit / incentive / regulation)
+- 640 rows
+- Columns: NAME, STATEFP, STATE_ABBR, SCOPE, CATEGORY, OWNER_CLASS, ITEM_TYPE, DATASET_NAME, SOURCE_ACCREDITATION, URL, DATA_AGE, DESCRIPTION, APPLICABLE_SYSTEM_TYPES, MIN_SYSTEM_SIZE_MW, MAX_SYSTEM_SIZE_MW, COST, STATUS, EFFECTIVE_DATE, EXPIRY_DATE, TIMEFRAME_DAYS
 
-**♻️ Reload Data:**
-- Right-click `county_permits_for_qgis` → Reload
+**SCOPE values:**
+- `county` — applies to one specific county
+- `state` — applies to all counties in a state
+- `federal` — applies to all US counties
+- `unknown` — could not determine scope
 
-**🎨 Change Colors:**
-- Right-click `tl_2025_us_county` → Properties → Symbology
+### 8.2 Export propagated detail CSV (detail_propagated.csv)
 
-**📊 Switch Data:**
-- Symbology → Value → Pick: PERMIT_CNT, INCENTV_CNT, REGULN_CNT, or TOTAL_CNT
+```bash
+python export_with_propagation.py /path/to/tl_2025_us_county.shp
+```
 
-**💾 Save:**
-- Project → Save (Ctrl+S / Cmd+S)
+**Output:** `detail_propagated.csv`
+- ~210,000 rows
+- One row per county × applicable item
+- Federal items distributed to all 3,235 counties
+- State items distributed to all counties in that state
+- County items kept for their specific county only
+- Same columns as above, plus NAME (county) and STATEFP
 
-**📤 Export:**
-- Project → New Print Layout → Layout → Export as Image
+> This file is large (~50MB) but pre-computed so QGIS loads it fast.
+
+---
+
+## 9. QGIS Setup
+
+### 9.1 Load the base layers
+
+**Load the shapefile:**
+1. Layer → Add Layer → Add Vector Layer
+2. Browse to `tl_2025_us_county.shp` → Add
+
+**Load the detail CSV:**
+1. Layer → Add Layer → Add Delimited Text Layer
+2. Browse to `detail_propagated.csv`
+3. Geometry definition: **No geometry**
+4. Click Add
+
+### 9.2 Create the choropleth (color by count)
+
+**Create a count virtual layer:**
+1. Layer → Create Layer → New Virtual Layer
+2. Paste in the Query box:
+```sql
+SELECT NAME, STATEFP,
+  COUNT(*) AS total_count,
+  SUM(CASE WHEN CATEGORY='permit' THEN 1 ELSE 0 END) AS permit_count,
+  SUM(CASE WHEN CATEGORY='incentive' THEN 1 ELSE 0 END) AS incentive_count,
+  SUM(CASE WHEN CATEGORY='regulation' THEN 1 ELSE 0 END) AS regulation_count
+FROM detail_propagated
+WHERE NAME != ''
+GROUP BY NAME, STATEFP
+```
+3. Click Add — rename this layer `counts_layer`
+
+**Join counts to shapefile:**
+1. Right-click `tl_2025_us_county` → Properties → Joins → green **+**
+2. Join layer: `counts_layer` | Join field: `NAME` | Target field: `NAME`
+3. Check **Custom field name prefix** → clear it (leave blank)
+4. OK → OK
+
+**Apply graduated colors:**
+1. Right-click `tl_2025_us_county` → Properties → Symbology
+2. Change to **Graduated**
+3. Value: `total_count`
+4. Color ramp: Yellow → Red (or any preference)
+5. Mode: **Natural Breaks (Jenks)** | Classes: **5**
+6. Click **Classify** → OK
+
+### 9.3 Create the 3 category layers
+
+These power the click-to-explore detail. Do this 3 times:
+
+**Layer → Create Layer → New Virtual Layer:**
+
+```sql
+-- Layer 1 — rename to: permits_layer
+SELECT * FROM detail_propagated WHERE CATEGORY = 'permit'
+```
+```sql
+-- Layer 2 — rename to: regulations_layer
+SELECT * FROM detail_propagated WHERE CATEGORY = 'regulation'
+```
+```sql
+-- Layer 3 — rename to: incentives_layer
+SELECT * FROM detail_propagated WHERE CATEGORY = 'incentive'
+```
+
+### 9.4 Set up 3 Relations
+
+Go to **Project → Properties → Relations → green +** (do this 3 times):
+
+| Name | Referenced layer | Referenced field | Referencing layer | Referencing field | Strength |
+|---|---|---|---|---|---|
+| Permits | tl_2025_us_county | NAME | permits_layer | NAME | Association |
+| Regulations | tl_2025_us_county | NAME | regulations_layer | NAME | Association |
+| Incentives | tl_2025_us_county | NAME | incentives_layer | NAME | Association |
+
+Click OK to close Project Properties.
+
+### 9.5 Configure the Feature Form
+
+1. Right-click `tl_2025_us_county` → Properties → **Attributes Form**
+2. At the top switch to **Drag and Drop Designer**
+3. On the right, add 3 Group Boxes (click +):
+   - Group: `Permits` → drag the **Permits** relation into it
+   - Group: `Regulations` → drag the **Regulations** relation into it
+   - Group: `Incentives` → drag the **Incentives** relation into it
+4. Click OK
+
+### 9.6 Configure multiline description display
+
+Do this for each of the 3 category layers:
+
+1. Right-click `permits_layer` → Properties → **Attributes Form**
+2. Click **DESCRIPTION** in the field list
+3. Widget Type → **Text Edit**
+4. Check **Multiline**
+5. Click OK
+
+Repeat for `regulations_layer` and `incentives_layer`.
+
+### 9.7 Click to explore
+
+1. Select the **Identify Features** tool (ⓘ in toolbar)
+2. Click any county on the map
+3. Double-click the county in the Identify Results panel
+4. The Feature Form opens with 3 collapsible sections:
+   - **Permits** — all permits applicable to that county
+   - **Regulations** — all regulations applicable to that county
+   - **Incentives** — all incentives applicable to that county
+5. Each section includes: Dataset Name, URL, Description, Item Type, Owner Class, Source Accreditation, Data Age, System Types, Min/Max System Size, Cost, Status, Scope
+
+### 9.8 Save the project
+
+Project → Save As → save as `SCEIN_Map.qgz` in the project folder.
 
 ---
 
-## Version History
+## 10. Updating Data Monthly
 
-**v1.0 - April 2026**
-- Initial handbook
-- Complete setup instructions
-- Daily workflow documented
-- Troubleshooting guide added
+When new data is added to the Excel file or the monthly scrape runs:
+
+### 10.1 Re-run the scraper (if updating manually)
+
+```bash
+python scraper.py
+```
+
+### 10.2 Regenerate the flat CSV
+
+```bash
+python export_qgis.py
+```
+
+### 10.3 Regenerate the propagated CSV
+
+```bash
+python export_with_propagation.py /path/to/tl_2025_us_county.shp
+```
+
+### 10.4 Reload in QGIS
+
+1. Open QGIS → open `SCEIN_Map.qgz`
+2. Right-click `detail_propagated` → **Reload**
+3. Right-click `counts_layer` (virtual layer) → **Reload**
+4. The map automatically reflects the new data
+
+### 10.5 Push updated files to GitHub
+
+```bash
+git add county_permits_for_qgis.csv detail_propagated.csv
+git commit -m "Update exported data"
+git push origin main
+```
 
 ---
+
+## 11. Troubleshooting
+
+### Virtual layer is slow to load
+
+**Cause:** Complex OR join logic computed live in QGIS.
+
+**Fix:** Make sure you are using `detail_propagated.csv` (pre-computed) not the raw `county_permits_for_qgis.csv` for the relations. The virtual layers for the 3 categories use simple `WHERE CATEGORY =` filters which are fast.
+
+---
+
+### "Name or service not known" in GitHub Actions
+
+**Cause:** `SUPABASE_URL` or `SUPABASE_KEY` secrets are not set or wrong.
+
+**Fix:** Go to GitHub → Settings → Secrets and variables → Actions → update both secrets.
+
+---
+
+### "No unique constraint matching ON CONFLICT specification"
+
+**Cause:** The `unique_permit_row` composite constraint is missing from the database.
+
+**Fix:** Run the `DO $$...$$` block from `supabase_schema_scein.sql` in Supabase SQL Editor.
+
+---
+
+### export_with_propagation.py — "Operation not permitted"
+
+**Cause:** macOS is blocking Python from reading files on the Desktop.
+
+**Fix:** System Settings → Privacy & Security → Full Disk Access → add Terminal → toggle ON → restart Terminal.
+
+---
+
+### Choropleth shows all the same color
+
+**Cause:** The join didn't work or `total_count` field is missing.
+
+**Fix:**
+1. Check the virtual layer `counts_layer` loaded correctly
+2. Re-do the join: Properties → Joins → remove old join → add new one
+3. Symbology → re-classify
+
+---
+
+### Description text is cut off in QGIS
+
+**Fix:** Right-click the layer → Properties → Attributes Form → click DESCRIPTION → Widget Type: **Text Edit** → check **Multiline** → OK.
+
+---
+
+**Repository:** https://github.com/sayali1004/Watts_on_Water
 
 **End of Handbook**
-
-For the latest version of this document, check:
-`/Users/sayalishelke/Desktop/scein-pipeline/USER_HANDBOOK.md`
